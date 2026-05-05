@@ -1,0 +1,85 @@
+version: '3.9'
+
+services:
+  db:
+    image: postgres:15-alpine
+    volumes:
+      - postgres_data:/var/lib/postgresql/data/
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-arm_academy}
+      POSTGRES_USER: ${POSTGRES_USER:-arm_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-arm_password}
+    shm_size: '128m'
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-arm_user}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    command: redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  web:
+    build: .
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-arm_user}:${POSTGRES_PASSWORD:-arm_password}@db:5432/${POSTGRES_DB:-arm_academy}
+      REDIS_URL: redis://redis:6379/0
+      DB_HOST: db
+      POSTGRES_USER: ${POSTGRES_USER:-arm_user}
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  celery:
+    build: .
+    command: ["celery", "-A", "config", "worker", "--loglevel=info", "--concurrency=2"]
+    env_file: .env
+    environment:
+      DATABASE_URL: postgresql://${POSTGRES_USER:-arm_user}:${POSTGRES_PASSWORD:-arm_password}@db:5432/${POSTGRES_DB:-arm_academy}
+      REDIS_URL: redis://redis:6379/0
+      DB_HOST: db
+      POSTGRES_USER: ${POSTGRES_USER:-arm_user}
+    volumes:
+      - media_volume:/app/media
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+
+  nginx:
+    build:
+      context: .
+      dockerfile: nginx/Dockerfile
+    ports:
+      - "80:80"
+    volumes:
+      - static_volume:/app/staticfiles
+      - media_volume:/app/media
+    depends_on:
+      - web
+    restart: unless-stopped
+
+volumes:
+  postgres_data:
+  redis_data:
+  static_volume:
+  media_volume:
