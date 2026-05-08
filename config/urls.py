@@ -4,23 +4,38 @@ from django.conf import settings
 from django.conf.urls.static import static
 from rest_framework_simplejwt.views import TokenRefreshView, TokenVerifyView
 from .views import HealthCheckView, api_root
-from apps.users.views import CustomTokenObtainPairView, RegisterView, LogoutView
+from apps.users.views import (
+    CustomLoginView, RegisterView, VerifyEmailView, ResendEmailOTPView,
+    Verify2FAView, Setup2FAView, SendPhoneOTPView, VerifyPhoneView, LogoutView,
+)
 
 urlpatterns = [
     path('', api_root, name='api-root'),
     path('health/', HealthCheckView.as_view(), name='health-check'),
     path('admin/', admin.site.urls),
 
-    # JWT auth endpoints
-    path('api/auth/login/', CustomTokenObtainPairView.as_view(), name='token_obtain_pair'),
-    path('api/auth/refresh/', TokenRefreshView.as_view(), name='token_refresh'),
-    path('api/auth/verify/', TokenVerifyView.as_view(), name='token_verify'),
-    path('api/auth/register/', RegisterView.as_view(), name='register'),
-    path('api/auth/logout/', LogoutView.as_view(), name='logout'),
+    # ── Authentication ──────────────────────────────────────────────────────
+    path('api/auth/register/',         RegisterView.as_view(),       name='register'),
+    path('api/auth/login/',            CustomLoginView.as_view(),    name='login'),
+    path('api/auth/logout/',           LogoutView.as_view(),         name='logout'),
+    path('api/auth/refresh/',          TokenRefreshView.as_view(),   name='token_refresh'),
+    path('api/auth/verify-token/',     TokenVerifyView.as_view(),    name='token_verify'),
 
-    # Resource routes
+    # ── Email verification ──────────────────────────────────────────────────
+    path('api/auth/verify-email/',     VerifyEmailView.as_view(),    name='verify_email'),
+    path('api/auth/resend-email-otp/', ResendEmailOTPView.as_view(), name='resend_email_otp'),
+
+    # ── 2FA ─────────────────────────────────────────────────────────────────
+    path('api/auth/verify-2fa/',       Verify2FAView.as_view(),      name='verify_2fa'),
+    path('api/auth/setup-2fa/',        Setup2FAView.as_view(),       name='setup_2fa'),
+
+    # ── Phone verification ───────────────────────────────────────────────────
+    path('api/auth/send-phone-otp/',   SendPhoneOTPView.as_view(),   name='send_phone_otp'),
+    path('api/auth/verify-phone/',     VerifyPhoneView.as_view(),    name='verify_phone'),
+
+    # ── Resource APIs ────────────────────────────────────────────────────────
     path('api/', include([
-        path('users/', include('apps.users.urls')),
+        path('', include('apps.users.urls')),
         path('', include('apps.courses.urls')),
         path('', include('apps.groups.urls')),
         path('', include('apps.messaging.urls')),
