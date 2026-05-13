@@ -47,3 +47,6 @@ db.sqlite3-journal
 .coverage
 .pytest_cache/
 htmlcov/
+
+# Claude Code
+.claude/
