@@ -28,6 +28,13 @@ const LEVELS = [
   { value: 'advanced',     label: 'Advanced — Strong background needed' },
 ]
 
+const CONTENT_RATINGS = [
+  { value: 'general', label: '🌍 General — Suitable for all ages' },
+  { value: 'teen',    label: '👦 Teen (13+) — Mature themes, no explicit content' },
+  { value: 'mature',  label: '🔞 Mature (16+) — Adult themes' },
+  { value: 'adult',   label: '🔞 18+ Adults Only — Age verification required' },
+]
+
 export default function CreateCourse() {
   const navigate = useNavigate()
   const fileRef = useRef(null)
@@ -37,7 +44,12 @@ export default function CreateCourse() {
     description: '',
     category: '',
     level: 'beginner',
+    language: 'Armenian',
     is_free: true,
+    content_rating: 'general',
+    requirements: '',
+    what_you_learn: '',
+    trailer_url: '',
     is_published: false,
   })
   const [coverPreview, setCoverPreview] = useState(null)
@@ -162,30 +174,73 @@ export default function CreateCourse() {
 
           {/* Details */}
           <section className="bg-white rounded-2xl border p-6 space-y-5">
-            <h2 className="font-bold">Category &amp; Level</h2>
-
+            <h2 className="font-bold">Category, Level &amp; Language</h2>
             <div className="grid sm:grid-cols-2 gap-4">
               <div>
-                <Label htmlFor="category">
-                  Category <span className="text-red-500">*</span>
-                </Label>
-                <Select
-                  id="category" name="category"
-                  value={form.category} onChange={handleChange}
-                  className={cn('mt-1.5', errors.category && 'border-red-400')}
-                >
+                <Label htmlFor="category">Category <span className="text-red-500">*</span></Label>
+                <Select id="category" name="category" value={form.category} onChange={handleChange}
+                  className={cn('mt-1.5', errors.category && 'border-red-400')}>
                   <option value="">Select a category…</option>
                   {CATEGORIES.map((c) => <option key={c} value={c}>{c}</option>)}
                 </Select>
                 {errors.category && <p className="text-xs text-red-500 mt-1">{errors.category}</p>}
               </div>
-
               <div>
                 <Label htmlFor="level">Level</Label>
                 <Select id="level" name="level" value={form.level} onChange={handleChange} className="mt-1.5">
                   {LEVELS.map(({ value, label }) => <option key={value} value={value}>{label}</option>)}
                 </Select>
               </div>
+              <div>
+                <Label htmlFor="language">Course Language</Label>
+                <Input id="language" name="language" value={form.language} onChange={handleChange}
+                  placeholder="Armenian" className="mt-1.5" />
+              </div>
+              <div>
+                <Label htmlFor="trailer_url">Trailer Video URL <span className="text-xs text-muted-foreground">(optional)</span></Label>
+                <Input id="trailer_url" name="trailer_url" value={form.trailer_url} onChange={handleChange}
+                  placeholder="https://youtube.com/watch?v=…" className="mt-1.5" type="url" />
+              </div>
+            </div>
+          </section>
+
+          {/* Content Rating */}
+          <section className="bg-white rounded-2xl border p-6 space-y-4">
+            <div>
+              <h2 className="font-bold">Content Rating</h2>
+              <p className="text-sm text-muted-foreground mt-1">Choose the appropriate audience for your course. Adult content requires users to verify their age.</p>
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              {CONTENT_RATINGS.map(({ value, label }) => (
+                <button key={value} type="button" onClick={() => setForm(f => ({...f, content_rating: value}))}
+                  className={cn('flex items-center gap-3 rounded-xl border-2 p-3 text-left text-sm transition-all',
+                    form.content_rating === value ? 'border-primary bg-primary/5 font-semibold' : 'border-slate-200 hover:border-primary/30')}>
+                  <span>{label}</span>
+                  {form.content_rating === value && <Check className="h-4 w-4 text-primary ml-auto shrink-0" />}
+                </button>
+              ))}
+            </div>
+            {form.content_rating === 'adult' && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm text-red-700">
+                ⚠️ Adult courses require admin approval and age verification for all students.
+              </div>
+            )}
+          </section>
+
+          {/* What students learn */}
+          <section className="bg-white rounded-2xl border p-6 space-y-4">
+            <h2 className="font-bold">What Students Will Learn</h2>
+            <div>
+              <Label htmlFor="what_you_learn">Learning Outcomes</Label>
+              <Textarea id="what_you_learn" name="what_you_learn" value={form.what_you_learn} onChange={handleChange}
+                placeholder="Enter each outcome on a new line, e.g:&#10;Understand derivatives and integrals&#10;Solve real-world engineering problems&#10;Build strong exam preparation skills"
+                rows={5} className="mt-1.5" />
+              <p className="text-xs text-muted-foreground mt-1">One outcome per line. Shown as bullet points on the course page.</p>
+            </div>
+            <div>
+              <Label htmlFor="requirements">Prerequisites / Requirements</Label>
+              <Textarea id="requirements" name="requirements" value={form.requirements} onChange={handleChange}
+                placeholder="What should students know before taking this course? (optional)" rows={3} className="mt-1.5" />
             </div>
           </section>
 
@@ -277,7 +332,7 @@ export default function CreateCourse() {
               disabled={createMutation.isPending}
             >
               {createMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : null}
-              Publish Now →
+              Submit for Review →
             </Button>
           </div>
         </div>

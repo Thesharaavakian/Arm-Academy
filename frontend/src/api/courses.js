@@ -13,6 +13,7 @@ export const coursesApi = {
   enroll:    (id)           => api.post(`/courses/${id}/enroll/`),
   unenroll:  (id)           => api.post(`/courses/${id}/unenroll/`),
   classes:   (id)           => api.get(`/courses/${id}/classes/`),
+  sections:  (id)           => api.get(`/courses/${id}/sections/`),
   reviews:   (id)           => api.get(`/courses/${id}/reviews/`),
 }
 

@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { Search, X, SlidersHorizontal, BookOpen } from 'lucide-react'
+import { Search, X, SlidersHorizontal, BookOpen, ChevronLeft, ChevronRight } from 'lucide-react'
 import { useSearchParams, Link } from 'react-router-dom'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
@@ -50,23 +50,32 @@ export default function Courses() {
   const [category, setCategory] = useState(searchParams.get('category') || '')
   const [freeOnly, setFreeOnly] = useState(false)
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [page, setPage] = useState(1)
 
   const { data, isLoading } = useQuery({
-    queryKey: ['courses', search, level, category, freeOnly],
+    queryKey: ['courses', search, level, category, freeOnly, page],
     queryFn: () =>
       coursesApi.list({
         search: search || undefined,
         level: level || undefined,
         category: category || undefined,
         is_free: freeOnly || undefined,
+        page,
       }).then((r) => r.data),
+    keepPreviousData: true,
   })
 
-  const courses = data?.results || (Array.isArray(data) ? data : [])
+  const courses    = data?.results || (Array.isArray(data) ? data : [])
   const totalCount = data?.count ?? courses.length
+  const hasNext    = !!data?.next
+  const hasPrev    = !!data?.previous
+  const pageSize   = 12
+  const totalPages = Math.ceil(totalCount / pageSize)
+
+  const handleFilterChange = (setter) => (val) => { setter(val); setPage(1) }
   const hasFilters = search || level || category || freeOnly
 
-  const clearAll = () => { setSearch(''); setLevel(''); setCategory(''); setFreeOnly(false) }
+  const clearAll = () => { setSearch(''); setLevel(''); setCategory(''); setFreeOnly(false); setPage(1) }
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -212,9 +221,44 @@ export default function Courses() {
                   {hasFilters && <Button variant="outline" onClick={clearAll}>Clear all filters</Button>}
                 </div>
               ) : (
-                <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
-                  {courses.map((course) => <CourseCard key={course.id} course={course} />)}
-                </div>
+                <>
+                  <div className="grid sm:grid-cols-2 xl:grid-cols-3 gap-5">
+                    {courses.map((course) => <CourseCard key={course.id} course={course} />)}
+                  </div>
+
+                  {/* Pagination */}
+                  {totalPages > 1 && (
+                    <div className="flex items-center justify-center gap-2 mt-8">
+                      <Button variant="outline" size="sm" disabled={!hasPrev}
+                        onClick={() => setPage(p => Math.max(1, p - 1))}>
+                        <ChevronLeft className="h-4 w-4 mr-1" />Prev
+                      </Button>
+
+                      <div className="flex items-center gap-1">
+                        {Array.from({ length: Math.min(totalPages, 7) }, (_, i) => {
+                          let p = i + 1
+                          if (totalPages > 7) {
+                            if (page <= 4) p = i + 1
+                            else if (page >= totalPages - 3) p = totalPages - 6 + i
+                            else p = page - 3 + i
+                          }
+                          return (
+                            <button key={p} onClick={() => setPage(p)}
+                              className={cn('h-8 w-8 rounded-lg text-sm font-medium transition-colors',
+                                page === p ? 'bg-primary text-white' : 'hover:bg-slate-100 text-slate-600')}>
+                              {p}
+                            </button>
+                          )
+                        })}
+                      </div>
+
+                      <Button variant="outline" size="sm" disabled={!hasNext}
+                        onClick={() => setPage(p => p + 1)}>
+                        Next<ChevronRight className="h-4 w-4 ml-1" />
+                      </Button>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>

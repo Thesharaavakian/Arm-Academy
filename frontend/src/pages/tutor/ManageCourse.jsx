@@ -17,6 +17,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
 import { toast } from '@/hooks/useToast'
 import { coursesApi, classesApi } from '@/api/courses'
+import api from '@/api/client'
 import { useAuthStore } from '@/store/authStore'
 import { formatDateTime, cn } from '@/lib/utils'
 
@@ -33,10 +34,64 @@ const emptyClass = {
   title: '', description: '', class_type: 'live', status: 'scheduled',
   scheduled_start: '', scheduled_end: '', duration_minutes: '',
   meeting_url: '', recording_link: '', location: '', max_students: '',
+  is_preview: false, section: '',
+}
+
+// ── Section modal ──────────────────────────────────────────────────────────────
+function SectionModal({ courseId, editing, onClose }) {
+  const queryClient = useQueryClient()
+  const [title, setTitle]       = useState(editing?.title || '')
+  const [desc, setDesc]         = useState(editing?.description || '')
+  const [order, setOrder]       = useState(editing?.order ?? 0)
+
+  const mutation = useMutation({
+    mutationFn: (data) =>
+      editing
+        ? api.patch(`/sections/${editing.id}/`, data)
+        : api.post('/sections/', { ...data, course: courseId }),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['manage-sections', String(courseId)] })
+      toast({ title: editing ? 'Section updated!' : 'Section added!', variant: 'success' })
+      onClose()
+    },
+    onError: (err) => toast({ title: 'Failed', description: err.response?.data?.detail, variant: 'destructive' }),
+  })
+
+  const submit = (e) => {
+    e.preventDefault()
+    if (!title.trim()) return
+    mutation.mutate({ title, description: desc, order: Number(order) })
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-sm">
+        <div className="flex items-center justify-between p-5 border-b">
+          <h2 className="font-bold">{editing ? 'Edit Section' : 'Add Section'}</h2>
+          <button onClick={onClose} className="text-muted-foreground hover:text-foreground text-xl">✕</button>
+        </div>
+        <form onSubmit={submit} className="p-5 space-y-4">
+          <div><Label>Section Title <span className="text-red-500">*</span></Label>
+            <Input value={title} onChange={e => setTitle(e.target.value)} placeholder="e.g. Chapter 1: Introduction" className="mt-1.5" /></div>
+          <div><Label>Description <span className="text-muted-foreground text-xs">(optional)</span></Label>
+            <Textarea value={desc} onChange={e => setDesc(e.target.value)} rows={2} className="mt-1.5" /></div>
+          <div><Label>Display Order</Label>
+            <Input type="number" min="0" value={order} onChange={e => setOrder(e.target.value)} className="mt-1.5 w-24" /></div>
+          <div className="flex gap-3 pt-1">
+            <Button type="button" variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
+            <Button type="submit" className="flex-1" disabled={mutation.isPending || !title.trim()}>
+              {mutation.isPending && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              {editing ? 'Save' : 'Add Section'}
+            </Button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
 }
 
 // ── Class form modal ──────────────────────────────────────────────────────────
-function ClassModal({ courseId, editing, onClose }) {
+function ClassModal({ courseId, editing, sections, onClose }) {
   const queryClient = useQueryClient()
   const [form, setForm] = useState(editing ? {
     title: editing.title,
@@ -50,6 +105,9 @@ function ClassModal({ courseId, editing, onClose }) {
     recording_link: editing.recording_link || '',
     location: editing.location || '',
     max_students: editing.max_students || '',
+    is_preview: editing.is_preview || false,
+    section: editing.section || '',
+    order: editing.order ?? 0,
   } : { ...emptyClass })
 
   const isLive = form.class_type === 'live'
@@ -163,6 +221,31 @@ function ClassModal({ courseId, editing, onClose }) {
             </div>
           </div>
 
+          {/* Section assignment */}
+          {sections && sections.length > 0 && (
+            <div>
+              <Label>Section <span className="text-muted-foreground text-xs">(optional)</span></Label>
+              <Select name="section" value={form.section || ''} onChange={handle} className="mt-1.5">
+                <option value="">No section</option>
+                {sections.map(s => <option key={s.id} value={s.id}>{s.title}</option>)}
+              </Select>
+            </div>
+          )}
+
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <Label>Display Order</Label>
+              <Input name="order" type="number" min="0" value={form.order ?? 0} onChange={handle} className="mt-1.5" />
+            </div>
+            <div className="flex items-center gap-2 mt-6">
+              <input type="checkbox" id="is_preview" checked={form.is_preview}
+                onChange={e => setForm(f => ({...f, is_preview: e.target.checked}))} className="rounded" />
+              <label htmlFor="is_preview" className="text-sm font-medium cursor-pointer">
+                Free preview <span className="text-xs text-muted-foreground">(visible to non-enrolled)</span>
+              </label>
+            </div>
+          </div>
+
           <div className="flex gap-3 pt-2">
             <Button type="button" variant="outline" onClick={onClose} className="flex-1">Cancel</Button>
             <Button type="submit" className="flex-1" disabled={mutation.isPending}>
@@ -183,10 +266,12 @@ export default function ManageCourse() {
   const queryClient = useQueryClient()
   const { user } = useAuthStore()
 
-  const [showModal, setShowModal] = useState(false)
-  const [editingClass, setEditingClass] = useState(null)
+  const [showModal, setShowModal]         = useState(false)
+  const [editingClass, setEditingClass]   = useState(null)
   const [editingDetails, setEditingDetails] = useState(false)
-  const [detailForm, setDetailForm] = useState(null)
+  const [detailForm, setDetailForm]       = useState(null)
+  const [showSectionModal, setShowSectionModal] = useState(false)
+  const [editingSection, setEditingSection]     = useState(null)
 
   const { data: course, isLoading } = useQuery({
     queryKey: ['manage-course', id],
@@ -198,6 +283,21 @@ export default function ManageCourse() {
     queryKey: ['manage-classes', id],
     queryFn: () => coursesApi.classes(id).then((r) => r.data),
     enabled: !!id,
+  })
+
+  const { data: sectionsRaw } = useQuery({
+    queryKey: ['manage-sections', id],
+    queryFn: () => api.get('/sections/', { params: { course: id } }).then(r => r.data),
+    enabled: !!id,
+  })
+  const sections = Array.isArray(sectionsRaw) ? sectionsRaw : (sectionsRaw?.results || [])
+
+  const deleteSectionMutation = useMutation({
+    mutationFn: (secId) => api.delete(`/sections/${secId}/`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['manage-sections', id] })
+      toast({ title: 'Section removed', variant: 'success' })
+    },
   })
   const classes = Array.isArray(classesRaw) ? classesRaw : (classesRaw?.results || [])
 
@@ -251,7 +351,15 @@ export default function ManageCourse() {
         <ClassModal
           courseId={Number(id)}
           editing={editingClass}
+          sections={sections}
           onClose={() => { setShowModal(false); setEditingClass(null) }}
+        />
+      )}
+      {(showSectionModal || editingSection) && (
+        <SectionModal
+          courseId={Number(id)}
+          editing={editingSection}
+          onClose={() => { setShowSectionModal(false); setEditingSection(null) }}
         />
       )}
 
@@ -277,9 +385,33 @@ export default function ManageCourse() {
             className="shrink-0"
           >
             {publishMutation.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> :
-              course.is_published ? <><EyeOff className="h-4 w-4 mr-1.5" />Unpublish</> : <><Globe className="h-4 w-4 mr-1.5" />Publish</>}
+              course.is_published
+                ? <><EyeOff className="h-4 w-4 mr-1.5" />Unpublish</>
+                : course.moderation_status === 'pending_review'
+                  ? <>⏳ Under Review</>
+                  : <><Globe className="h-4 w-4 mr-1.5" />Submit for Review</>}
           </Button>
         </div>
+
+        {/* Moderation status alert */}
+        {course.moderation_status === 'pending_review' && (
+          <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 text-sm text-amber-800">
+            ⏳ <strong>Under Review</strong> — Your course has been submitted and is awaiting admin approval. You'll be notified once reviewed.
+          </div>
+        )}
+        {course.moderation_status === 'rejected' && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-800">
+            ❌ <strong>Rejected</strong>
+            {course.rejection_reason && <span> — {course.rejection_reason}</span>}
+            <p className="mt-2">Please update your course and resubmit for review.</p>
+          </div>
+        )}
+        {course.moderation_status === 'suspended' && (
+          <div className="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-800">
+            🚫 <strong>Suspended</strong>
+            {course.rejection_reason && <span> — {course.rejection_reason}</span>}
+          </div>
+        )}
 
         {/* Stats strip */}
         <div className="bg-white rounded-2xl border p-4 grid grid-cols-3 divide-x text-center">
@@ -327,12 +459,53 @@ export default function ManageCourse() {
           )}
         </section>
 
+        {/* Sections */}
+        <section className="bg-white rounded-2xl border p-6">
+          <div className="flex items-center justify-between mb-4">
+            <div>
+              <h2 className="font-bold">Sections</h2>
+              <p className="text-sm text-muted-foreground">Group lectures into chapters for a better learning experience</p>
+            </div>
+            <Button size="sm" variant="outline" onClick={() => setShowSectionModal(true)}>
+              <Plus className="h-4 w-4 mr-1.5" />Add Section
+            </Button>
+          </div>
+
+          {sections.length === 0 ? (
+            <p className="text-sm text-muted-foreground italic">No sections yet — classes will appear as a flat list.</p>
+          ) : (
+            <div className="space-y-2">
+              {sections.sort((a,b) => a.order - b.order).map(s => (
+                <div key={s.id} className="flex items-center gap-3 p-3 rounded-xl border bg-slate-50 group">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-full bg-primary/10 text-primary text-xs font-bold shrink-0">
+                    {s.order + 1}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="font-medium text-sm">{s.title}</div>
+                    {s.description && <div className="text-xs text-muted-foreground truncate">{s.description}</div>}
+                  </div>
+                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={() => setEditingSection(s)}
+                      className="p-1.5 rounded-lg hover:bg-slate-100 text-slate-500 hover:text-primary">
+                      <Pencil className="h-3.5 w-3.5" />
+                    </button>
+                    <button onClick={() => { if (confirm('Delete this section?')) deleteSectionMutation.mutate(s.id) }}
+                      className="p-1.5 rounded-lg hover:bg-red-50 text-slate-500 hover:text-red-500">
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </section>
+
         {/* Classes */}
         <section className="bg-white rounded-2xl border p-6">
           <div className="flex items-center justify-between mb-5">
             <div>
-              <h2 className="font-bold">Classes</h2>
-              <p className="text-sm text-muted-foreground">{classes.length} class{classes.length !== 1 ? 'es' : ''} in this course</p>
+              <h2 className="font-bold">Classes / Lectures</h2>
+              <p className="text-sm text-muted-foreground">{classes.length} lecture{classes.length !== 1 ? 's' : ''} in this course</p>
             </div>
             <Button onClick={() => setShowModal(true)}>
               <Plus className="h-4 w-4 mr-1.5" /> Add Class

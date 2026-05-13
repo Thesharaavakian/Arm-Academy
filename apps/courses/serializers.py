@@ -61,6 +61,7 @@ class ClassSerializer(serializers.ModelSerializer):
     section_title = serializers.CharField(source='section.title', read_only=True, default=None)
     is_live       = serializers.SerializerMethodField()
     has_video     = serializers.SerializerMethodField()
+    video_id      = serializers.SerializerMethodField()
     is_accessible = serializers.SerializerMethodField()
 
     class Meta:
@@ -72,7 +73,7 @@ class ClassSerializer(serializers.ModelSerializer):
             'scheduled_start', 'scheduled_end', 'duration_minutes',
             'location', 'meeting_url', 'recording_link',
             'max_students', 'enrolled_count',
-            'is_live', 'has_video', 'is_accessible',
+            'is_live', 'has_video', 'video_id', 'is_accessible',
             'created_at', 'updated_at',
         ]
         read_only_fields = ['id', 'created_at', 'updated_at', 'enrolled_count']
@@ -82,6 +83,11 @@ class ClassSerializer(serializers.ModelSerializer):
 
     def get_has_video(self, obj):
         return hasattr(obj, 'video') and obj.video is not None
+
+    def get_video_id(self, obj):
+        if hasattr(obj, 'video') and obj.video:
+            return obj.video.id
+        return None
 
     def get_is_accessible(self, obj):
         request = self.context.get('request')
