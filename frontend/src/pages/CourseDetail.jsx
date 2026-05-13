@@ -1,43 +1,62 @@
 import { useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { Star, Users, Clock, Award, ChevronRight, Play, MessageSquare, MapPin, Check, Loader2 } from 'lucide-react'
+import {
+  Star, Users, Clock, Award, ChevronRight, Play, MessageSquare,
+  MapPin, Check, Loader2, Pencil, Settings,
+} from 'lucide-react'
 import Navbar from '@/components/layout/Navbar'
 import Footer from '@/components/layout/Footer'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
+import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
+import ReviewForm from '@/components/reviews/ReviewForm'
 import { coursesApi } from '@/api/courses'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from '@/hooks/useToast'
-import { formatDateTime, getInitials } from '@/lib/utils'
+import { formatDateTime, getInitials, cn } from '@/lib/utils'
+import api from '@/api/client'
 
 const classTypeIcon = { live: Play, recorded: Play, chat: MessageSquare, in_person: MapPin }
-const classTypeBadge = { live: 'info', recorded: 'secondary', chat: 'outline', in_person: 'success' }
+const classTypeBadge = { live: 'destructive', recorded: 'secondary', chat: 'outline', in_person: 'success' }
 
 export default function CourseDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { isAuthenticated } = useAuthStore()
+  const { isAuthenticated, user } = useAuthStore()
   const queryClient = useQueryClient()
+  const [reviewEditMode, setReviewEditMode] = useState(false)
 
   const { data: course, isLoading } = useQuery({
     queryKey: ['course', id],
     queryFn: () => coursesApi.get(id).then((r) => r.data),
   })
 
-  const { data: classesData } = useQuery({
+  const { data: classesRaw } = useQuery({
     queryKey: ['course-classes', id],
     queryFn: () => coursesApi.classes(id).then((r) => r.data),
     enabled: !!id,
   })
 
-  const { data: reviewsData } = useQuery({
+  const { data: reviewsRaw } = useQuery({
     queryKey: ['course-reviews', id],
     queryFn: () => coursesApi.reviews(id).then((r) => r.data),
     enabled: !!id,
+  })
+
+  // Fetch the current user's review for this course (if any)
+  const { data: myReviewData } = useQuery({
+    queryKey: ['my-review', id],
+    queryFn: () =>
+      api.get('/reviews/', { params: { course: id, reviewer: user?.id } })
+        .then((r) => {
+          const d = r.data
+          const arr = Array.isArray(d) ? d : (d?.results || [])
+          return arr[0] || null
+        }),
+    enabled: !!isAuthenticated && !!user?.id,
   })
 
   const enrollMutation = useMutation({
@@ -57,8 +76,11 @@ export default function CourseDetail() {
     enrollMutation.mutate()
   }
 
-  const classes = classesData?.results || (Array.isArray(classesData) ? classesData : [])
-  const reviews = reviewsData?.results || (Array.isArray(reviewsData) ? reviewsData : [])
+  const classes = Array.isArray(classesRaw) ? classesRaw : (classesRaw?.results || [])
+  const reviews = Array.isArray(reviewsRaw) ? reviewsRaw : (reviewsRaw?.results || [])
+  const isOwner = course?.is_owner
+  const isEnrolled = course?.is_enrolled || enrollMutation.isSuccess
+  const canReview = isAuthenticated && isEnrolled && !isOwner
 
   if (isLoading) {
     return (
@@ -72,10 +94,7 @@ export default function CourseDetail() {
       </div>
     )
   }
-
   if (!course) return null
-
-  const isEnrolled = enrollMutation.isSuccess
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -108,7 +127,7 @@ export default function CourseDetail() {
               </div>
               <div className="flex items-center gap-1.5">
                 <Users className="h-4 w-4 text-slate-400" />
-                <span>{course.total_students || 0} students enrolled</span>
+                <span>{course.total_students || 0} students</span>
               </div>
             </div>
 
@@ -120,11 +139,20 @@ export default function CourseDetail() {
                 by <span className="text-white font-medium">{course.tutor_name}</span>
               </span>
             </div>
+
+            {/* Owner controls */}
+            {isOwner && (
+              <div className="mt-5">
+                <Button size="sm" variant="outline" className="border-white/30 text-white hover:bg-white/10 bg-transparent" asChild>
+                  <Link to={`/courses/${id}/manage`}><Settings className="h-4 w-4 mr-2" />Manage Course</Link>
+                </Button>
+              </div>
+            )}
           </div>
         </div>
       </div>
 
-      {/* Content */}
+      {/* Body */}
       <div className="flex-1 bg-slate-50">
         <div className="container py-8">
           <div className="flex flex-col lg:flex-row gap-8">
@@ -142,7 +170,7 @@ export default function CourseDetail() {
                     {classes.map((cls) => {
                       const Icon = classTypeIcon[cls.class_type] || Play
                       return (
-                        <div key={cls.id} className="flex items-center gap-4 p-4 bg-white rounded-xl border hover:border-primary/30 transition-colors cursor-default">
+                        <div key={cls.id} className="flex items-center gap-4 p-4 bg-white rounded-xl border hover:border-primary/30 transition-colors">
                           <div className="flex h-9 w-9 items-center justify-center rounded-full bg-primary/10 text-primary shrink-0">
                             <Icon className="h-4 w-4" />
                           </div>
@@ -164,14 +192,68 @@ export default function CourseDetail() {
 
               {/* Reviews */}
               <section>
-                <h2 className="text-xl font-bold mb-4">Student Reviews</h2>
+                <h2 className="text-xl font-bold mb-5">Student Reviews</h2>
+
+                {/* Leave / edit a review */}
+                {canReview && (
+                  <div className="bg-white rounded-2xl border p-5 mb-5">
+                    {myReviewData && !reviewEditMode ? (
+                      <>
+                        <div className="flex items-center justify-between mb-3">
+                          <h3 className="font-semibold text-sm">Your Review</h3>
+                          <button onClick={() => setReviewEditMode(true)}
+                            className="flex items-center gap-1 text-xs text-primary hover:underline">
+                            <Pencil className="h-3 w-3" /> Edit
+                          </button>
+                        </div>
+                        <div className="flex gap-0.5 mb-2">
+                          {[1,2,3,4,5].map((s) => (
+                            <Star key={s} className={cn('h-4 w-4', s <= myReviewData.rating ? 'fill-amber-400 text-amber-400' : 'text-slate-200')} />
+                          ))}
+                        </div>
+                        {myReviewData.title && <p className="font-medium text-sm mb-1">{myReviewData.title}</p>}
+                        <p className="text-sm text-muted-foreground italic">"{myReviewData.comment}"</p>
+                      </>
+                    ) : (
+                      <>
+                        <h3 className="font-semibold text-sm mb-4">
+                          {myReviewData ? 'Edit Your Review' : 'Leave a Review'}
+                        </h3>
+                        <ReviewForm
+                          courseId={Number(id)}
+                          existingReview={reviewEditMode ? myReviewData : null}
+                          onSuccess={() => setReviewEditMode(false)}
+                        />
+                        {reviewEditMode && (
+                          <button onClick={() => setReviewEditMode(false)}
+                            className="mt-3 text-xs text-muted-foreground hover:text-primary">
+                            Cancel
+                          </button>
+                        )}
+                      </>
+                    )}
+                  </div>
+                )}
+
+                {!isAuthenticated && (
+                  <div className="bg-indigo-50 border border-indigo-200 rounded-xl p-4 mb-5 text-sm text-indigo-700">
+                    <Link to="/login" className="font-semibold underline">Sign in</Link> and enroll to leave a review.
+                  </div>
+                )}
+
+                {isAuthenticated && !isEnrolled && !isOwner && (
+                  <div className="bg-slate-100 rounded-xl p-4 mb-5 text-sm text-muted-foreground">
+                    Enroll in this course to leave a review.
+                  </div>
+                )}
+
                 {reviews.length === 0 ? (
                   <div className="text-center py-10 bg-white rounded-2xl border border-dashed text-muted-foreground">
                     No reviews yet. Be the first to review!
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {reviews.slice(0, 5).map((review) => (
+                    {reviews.map((review) => (
                       <div key={review.id} className="bg-white rounded-xl border p-5">
                         <div className="flex items-start gap-3">
                           <Avatar className="h-9 w-9 shrink-0">
@@ -184,7 +266,7 @@ export default function CourseDetail() {
                               <span className="font-medium text-sm">{review.reviewer_name}</span>
                               <div className="flex gap-0.5">
                                 {Array.from({ length: 5 }).map((_, j) => (
-                                  <Star key={j} className={`h-3.5 w-3.5 ${j < review.rating ? 'fill-amber-400 text-amber-400' : 'text-slate-200'}`} />
+                                  <Star key={j} className={cn('h-3.5 w-3.5', j < review.rating ? 'fill-amber-400 text-amber-400' : 'text-slate-200')} />
                                 ))}
                               </div>
                             </div>
@@ -199,38 +281,29 @@ export default function CourseDetail() {
               </section>
             </div>
 
-            {/* Enroll sidebar */}
+            {/* Sidebar */}
             <aside className="lg:w-80 shrink-0">
               <div className="sticky top-24 bg-white rounded-2xl border shadow-sm overflow-hidden">
                 <div className="aspect-video bg-gradient-to-br from-indigo-100 to-purple-100">
-                  {course.cover_image ? (
-                    <img src={course.cover_image} alt={course.title} className="w-full h-full object-cover" />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center gradient-brand">
-                      <span className="text-5xl font-bold text-white/20">{course.title?.[0]}</span>
-                    </div>
-                  )}
+                  {course.cover_image
+                    ? <img src={course.cover_image} alt={course.title} className="w-full h-full object-cover" />
+                    : <div className="w-full h-full flex items-center justify-center gradient-brand">
+                        <span className="text-5xl font-bold text-white/20">{course.title?.[0]}</span>
+                      </div>
+                  }
                 </div>
 
                 <div className="p-5">
                   <div className="text-3xl font-bold mb-4">
-                    {course.is_free ? (
-                      <span className="text-emerald-600">Free</span>
-                    ) : (
-                      <span>Paid</span>
-                    )}
+                    {course.is_free ? <span className="text-emerald-600">Free</span> : <span>Paid</span>}
                   </div>
 
                   {isEnrolled ? (
                     <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 font-medium rounded-xl px-4 py-3 mb-4 border border-emerald-200">
-                      <Check className="h-5 w-5" /> Successfully enrolled!
+                      <Check className="h-5 w-5" /> Enrolled!
                     </div>
-                  ) : (
-                    <Button
-                      className="w-full h-11 text-base font-semibold mb-4"
-                      onClick={handleEnroll}
-                      disabled={enrollMutation.isPending}
-                    >
+                  ) : !isOwner && (
+                    <Button className="w-full h-11 text-base font-semibold mb-4" onClick={handleEnroll} disabled={enrollMutation.isPending}>
                       {enrollMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
                       {isAuthenticated ? 'Enroll Now' : 'Sign in to Enroll'}
                     </Button>
@@ -239,18 +312,9 @@ export default function CourseDetail() {
                   <Separator className="my-4" />
 
                   <ul className="space-y-2.5 text-sm text-muted-foreground">
-                    <li className="flex items-center gap-2.5">
-                      <Clock className="h-4 w-4 text-primary" />
-                      {classes.length} class{classes.length !== 1 ? 'es' : ''}
-                    </li>
-                    <li className="flex items-center gap-2.5">
-                      <Users className="h-4 w-4 text-primary" />
-                      {course.total_students || 0} students enrolled
-                    </li>
-                    <li className="flex items-center gap-2.5">
-                      <Award className="h-4 w-4 text-primary" />
-                      Certificate on completion
-                    </li>
+                    <li className="flex items-center gap-2.5"><Clock className="h-4 w-4 text-primary" />{classes.length} class{classes.length !== 1 ? 'es' : ''}</li>
+                    <li className="flex items-center gap-2.5"><Users className="h-4 w-4 text-primary" />{course.total_students || 0} students enrolled</li>
+                    <li className="flex items-center gap-2.5"><Award className="h-4 w-4 text-primary" />Certificate on completion</li>
                   </ul>
                 </div>
               </div>

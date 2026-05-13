@@ -246,7 +246,7 @@ const MOCK_REVIEWS = [
 function TutorDashboard({ user }) {
   const { data: coursesData, isLoading } = useQuery({
     queryKey: ['my-courses', user?.id],
-    queryFn: () => coursesApi.list({ tutor: user?.id }).then((r) => r.data),
+    queryFn: () => coursesApi.myCourses().then((r) => r.data),
     enabled: !!user?.id,
   })
 
