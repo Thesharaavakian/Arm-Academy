@@ -86,6 +86,20 @@ class CourseViewSet(viewsets.ModelViewSet):
         if Progress.objects.filter(student=user, course=course).exists():
             return Response({'detail': 'Already enrolled.'}, status=400)
 
+        # Gate paid courses — require a completed payment
+        if not course.is_free and course.price_amd:
+            from apps.payments.models import Payment
+            has_paid = Payment.objects.filter(
+                student=user, course=course, status='completed'
+            ).exists()
+            if not has_paid:
+                return Response({
+                    'detail': 'This course requires payment before enrolling.',
+                    'requires_payment': True,
+                    'price_amd': str(course.price_amd),
+                    'course_id': course.pk,
+                }, status=402)  # 402 Payment Required
+
         progress = Progress.objects.create(
             student=user, course=course,
             total_classes=Class.objects.filter(course=course).count(),

@@ -59,6 +59,8 @@ export default function CourseDetail() {
     enabled: !!isAuthenticated && !!user?.id,
   })
 
+  const [paymentLoading, setPaymentLoading] = useState(false)
+
   const enrollMutation = useMutation({
     mutationFn: () => coursesApi.enroll(id),
     onSuccess: () => {
@@ -67,12 +69,45 @@ export default function CourseDetail() {
       toast({ title: 'Enrolled!', description: `You're now enrolled in "${course?.title}".`, variant: 'success' })
     },
     onError: (err) => {
-      toast({ title: 'Enrollment failed', description: err.response?.data?.detail || 'Please try again.', variant: 'destructive' })
+      const d = err.response?.data
+      if (d?.requires_payment) {
+        // Should not reach here — handleEnroll catches paid courses first
+        // but handle gracefully just in case
+        handlePayment()
+      } else {
+        toast({ title: 'Enrollment failed', description: d?.detail || 'Please try again.', variant: 'destructive' })
+      }
     },
   })
 
+  const handlePayment = async () => {
+    if (!isAuthenticated) { navigate('/login'); return }
+    setPaymentLoading(true)
+    try {
+      const { data } = await api.post(`/payments/initiate/${id}/`)
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url   // → Stripe
+      } else if (data.manual) {
+        toast({
+          title: `Payment required — ${Number(data.amount_amd).toLocaleString()} ֏`,
+          description: data.detail,
+          variant: 'default',
+        })
+      }
+    } catch (err) {
+      toast({ title: 'Payment failed', description: err.response?.data?.detail || 'Please try again.', variant: 'destructive' })
+    } finally {
+      setPaymentLoading(false)
+    }
+  }
+
   const handleEnroll = () => {
     if (!isAuthenticated) { navigate('/login'); return }
+    // Route paid courses through payment flow
+    if (!course?.is_free && course?.price_amd) {
+      handlePayment()
+      return
+    }
     enrollMutation.mutate()
   }
 
@@ -294,18 +329,32 @@ export default function CourseDetail() {
                 </div>
 
                 <div className="p-5">
-                  <div className="text-3xl font-bold mb-4">
-                    {course.is_free ? <span className="text-emerald-600">Free</span> : <span>Paid</span>}
+                  <div className="text-3xl font-bold mb-1">
+                    {course.is_free
+                      ? <span className="text-emerald-600">Free</span>
+                      : <span>{course.price_amd ? `${Number(course.price_amd).toLocaleString()} ֏` : 'Paid'}</span>
+                    }
                   </div>
+                  {!course.is_free && course.price_amd && (
+                    <p className="text-xs text-muted-foreground mb-4">Armenian Dram (AMD)</p>
+                  )}
 
                   {isEnrolled ? (
                     <div className="flex items-center gap-2 bg-emerald-50 text-emerald-700 font-medium rounded-xl px-4 py-3 mb-4 border border-emerald-200">
                       <Check className="h-5 w-5" /> Enrolled!
                     </div>
                   ) : !isOwner && (
-                    <Button className="w-full h-11 text-base font-semibold mb-4" onClick={handleEnroll} disabled={enrollMutation.isPending}>
-                      {enrollMutation.isPending && <Loader2 className="h-4 w-4 animate-spin" />}
-                      {isAuthenticated ? 'Enroll Now' : 'Sign in to Enroll'}
+                    <Button
+                      className="w-full h-11 text-base font-semibold mb-4"
+                      onClick={handleEnroll}
+                      disabled={enrollMutation.isPending || paymentLoading}
+                    >
+                      {(enrollMutation.isPending || paymentLoading) && <Loader2 className="h-4 w-4 animate-spin" />}
+                      {!isAuthenticated
+                        ? 'Sign in to Enroll'
+                        : !course.is_free && course.price_amd
+                          ? `Pay ${Number(course.price_amd).toLocaleString()} ֏ & Enroll`
+                          : 'Enroll Now — Free'}
                     </Button>
                   )}
 
