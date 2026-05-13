@@ -149,13 +149,24 @@ CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
 CELERY_TIMEZONE = TIME_ZONE
+# In dev without Redis running, tasks execute synchronously in-process
+CELERY_TASK_ALWAYS_EAGER = config('CELERY_ALWAYS_EAGER', default=DEBUG, cast=bool)
+# Don't wait for result storage — avoids Redis connection on .delay()
+CELERY_TASK_IGNORE_RESULT = True
+CELERY_TASK_EAGER_PROPAGATES = False
 
-CACHES = {
-    'default': {
-        'BACKEND': 'django.core.cache.backends.redis.RedisCache',
-        'LOCATION': config('REDIS_URL', default='redis://localhost:6379/1'),
+# Cache — fall back to in-memory when Redis is unavailable
+try:
+    import redis as _r
+    _r.Redis.from_url(_redis_url).ping()
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.redis.RedisCache',
+            'LOCATION': config('REDIS_URL', default='redis://localhost:6379/1'),
+        }
     }
-}
+except Exception:
+    CACHES = {'default': {'BACKEND': 'django.core.cache.backends.locmem.LocMemCache'}}
 
 # Email
 EMAIL_BACKEND = config('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')

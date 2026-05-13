@@ -68,10 +68,10 @@ class Class(models.Model):
     class_type = models.CharField(max_length=20, choices=TYPE_CHOICES, default='live')
     status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='scheduled')
     
-    # Scheduling
-    scheduled_start = models.DateTimeField()
-    scheduled_end = models.DateTimeField()
-    duration_minutes = models.IntegerField(default=60)  # In minutes
+    # Scheduling (optional — not all class types need a fixed time)
+    scheduled_start = models.DateTimeField(null=True, blank=True)
+    scheduled_end = models.DateTimeField(null=True, blank=True)
+    duration_minutes = models.IntegerField(null=True, blank=True)
     
     # Location (for in-person)
     location = models.CharField(max_length=500, blank=True, null=True, help_text='Physical location for in-person classes')
@@ -96,5 +96,7 @@ class Class(models.Model):
         return f"{self.course.title} - {self.title}"
     
     def is_live_now(self):
+        if not self.scheduled_start or not self.scheduled_end:
+            return False
         now = timezone.now()
         return self.scheduled_start <= now <= self.scheduled_end

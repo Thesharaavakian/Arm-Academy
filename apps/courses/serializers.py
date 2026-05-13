@@ -17,7 +17,7 @@ class CourseSerializer(serializers.ModelSerializer):
             'created_at', 'updated_at',
         ]
         read_only_fields = [
-            'id', 'created_at', 'updated_at',
+            'id', 'tutor', 'created_at', 'updated_at',
             'total_students', 'average_rating', 'total_reviews',
         ]
 

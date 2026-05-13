@@ -3,16 +3,22 @@ from .models import Review, Progress, Attendance, Certificate
 
 
 class ReviewSerializer(serializers.ModelSerializer):
-    reviewer_name = serializers.CharField(source='reviewer.get_full_name', read_only=True)
-    
+    reviewer_name = serializers.SerializerMethodField()
+
     class Meta:
         model = Review
         fields = [
             'id', 'tutor', 'course', 'reviewer', 'reviewer_name',
             'title', 'comment', 'rating', 'is_verified', 'helpful_count',
-            'created_at', 'updated_at'
+            'created_at', 'updated_at',
         ]
-        read_only_fields = ['id', 'reviewer', 'created_at', 'updated_at', 'helpful_count']
+        read_only_fields = [
+            'id', 'reviewer', 'is_verified', 'helpful_count',
+            'created_at', 'updated_at',
+        ]
+
+    def get_reviewer_name(self, obj):
+        return obj.reviewer.get_full_name() or obj.reviewer.username
 
 
 class ProgressSerializer(serializers.ModelSerializer):
@@ -25,7 +31,10 @@ class ProgressSerializer(serializers.ModelSerializer):
             'attended_classes', 'completion_percentage', 'is_completed',
             'started_at', 'last_accessed', 'completed_at'
         ]
-        read_only_fields = ['id', 'student', 'started_at', 'last_accessed']
+        read_only_fields = [
+            'id', 'student', 'started_at', 'last_accessed',
+            'completion_percentage', 'attended_classes',
+        ]
 
 
 class AttendanceSerializer(serializers.ModelSerializer):

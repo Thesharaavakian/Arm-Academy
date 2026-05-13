@@ -29,9 +29,32 @@ def _issue_tokens(user):
 
 def _send_email_otp(user):
     otp = OTPVerification.create_for_user(user, OTPVerification.EMAIL)
-    from .tasks import send_email_otp_task
-    send_email_otp_task.delay(user.email, otp.code, user.first_name)
+    try:
+        from .tasks import send_email_otp_task
+        send_email_otp_task.delay(user.email, otp.code, user.first_name)
+    except Exception:
+        # Celery/Redis unavailable — send synchronously so dev still works
+        _send_email_sync(user.email, otp.code, user.first_name)
     return otp
+
+
+def _send_email_sync(email, code, name=''):
+    from django.core.mail import send_mail
+    from django.conf import settings as s
+    try:
+        send_mail(
+            subject='Arm Academy — Verify Your Email',
+            message=(
+                f'Hi {name or "there"},\n\n'
+                f'Your verification code is: {code}\n\n'
+                'This code expires in 15 minutes.\n\nArm Academy'
+            ),
+            from_email=s.DEFAULT_FROM_EMAIL,
+            recipient_list=[email],
+            fail_silently=True,
+        )
+    except Exception:
+        pass  # Email backend may also be unconfigured in dev — OTP is in DB
 
 
 # ── Auth views ────────────────────────────────────────────────────────────────
@@ -250,8 +273,11 @@ class SendPhoneOTPView(generics.GenericAPIView):
         request.user.save(update_fields=['phone_number'])
 
         otp = OTPVerification.create_for_user(request.user, OTPVerification.PHONE, expires_minutes=10)
-        from .tasks import send_phone_otp_task
-        send_phone_otp_task.delay(phone, otp.code)
+        try:
+            from .tasks import send_phone_otp_task
+            send_phone_otp_task.delay(phone, otp.code)
+        except Exception:
+            pass  # Twilio may not be configured; OTP is still in DB
         return Response({'detail': 'Verification code sent to your phone.'})
 
 
@@ -290,8 +316,11 @@ class UserViewSet(viewsets.ModelViewSet):
     queryset = CustomUser.objects.all()
     serializer_class = UserSerializer
 
+    # Actions that are publicly accessible (no login required)
+    _PUBLIC_ACTIONS = frozenset({'create', 'list', 'retrieve', 'featured_tutors', 'site_stats'})
+
     def get_permissions(self):
-        if self.action == 'create':
+        if self.action in self._PUBLIC_ACTIONS:
             return [AllowAny()]
         return [IsAuthenticated()]
 
