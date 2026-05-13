@@ -33,6 +33,10 @@ class CustomUser(AbstractUser):
     # Contact
     phone_number = models.CharField(max_length=20, blank=True, null=True)
 
+    # Age & legal
+    date_of_birth    = models.DateField(null=True, blank=True)
+    accepted_terms_at = models.DateTimeField(null=True, blank=True)
+
     # Verification flags
     email_verified = models.BooleanField(default=False)
     phone_verified = models.BooleanField(default=False)

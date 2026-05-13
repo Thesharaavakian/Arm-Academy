@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     'apps.videos',
     'apps.ratings',
     'apps.payments',
+    'apps.moderation',
 ]
 
 MIDDLEWARE = [

@@ -3,8 +3,8 @@ from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.db.models import F
-from .models import Course, Class
-from .serializers import CourseSerializer, ClassSerializer, ClassDetailSerializer
+from .models import Course, Class, Section
+from .serializers import CourseSerializer, ClassSerializer, ClassDetailSerializer, SectionSerializer
 from apps.users.permissions import IsTutor, IsCourseOwnerOrReadOnly
 
 
@@ -49,15 +49,32 @@ class CourseViewSet(viewsets.ModelViewSet):
         qs = Course.objects.filter(tutor=request.user).order_by('-created_at')
         return Response(CourseSerializer(qs, many=True, context={'request': request}).data)
 
-    # ── publish / unpublish ────────────────────────────────────────────────
+    # ── submit for review (was publish) ───────────────────────────────────
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsTutor])
     def publish(self, request, pk=None):
+        """
+        Tutors no longer publish directly.
+        Calling publish submits the course for admin moderation.
+        It goes live only after admin approval.
+        """
         course = self.get_object()
-        if course.tutor != request.user:
+        if course.tutor != request.user and request.user.role != 'admin':
             return Response({'detail': 'Not your course.'}, status=403)
-        course.is_published = True
-        course.save(update_fields=['is_published'])
-        return Response(CourseSerializer(course, context={'request': request}).data)
+
+        if course.moderation_status == 'pending_review':
+            return Response({'detail': 'Already submitted for review.'})
+
+        if course.moderation_status == 'approved':
+            # Re-publish a previously approved course (e.g. after unpublish)
+            course.is_published = True
+            course.save(update_fields=['is_published'])
+        else:
+            course.submit_for_review()
+
+        return Response({
+            'detail': 'Submitted for review. You will be notified once approved.',
+            'moderation_status': course.moderation_status,
+        })
 
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated, IsTutor])
     def unpublish(self, request, pk=None):
@@ -68,12 +85,26 @@ class CourseViewSet(viewsets.ModelViewSet):
         course.save(update_fields=['is_published'])
         return Response(CourseSerializer(course, context={'request': request}).data)
 
+    # ── sections ───────────────────────────────────────────────────────────
+    @action(detail=True, methods=['get'])
+    def sections(self, request, pk=None):
+        course = self.get_object()
+        sections = Section.objects.filter(course=course).prefetch_related('classes')
+        data = []
+        for s in sections:
+            sec_data = SectionSerializer(s).data
+            sec_data['classes'] = ClassSerializer(
+                s.classes.all(), many=True, context={'request': request}
+            ).data
+            data.append(sec_data)
+        return Response(data)
+
     # ── classes ────────────────────────────────────────────────────────────
     @action(detail=True, methods=['get'])
     def classes(self, request, pk=None):
         course = self.get_object()
-        qs = Class.objects.filter(course=course).order_by('scheduled_start')
-        return Response(ClassSerializer(qs, many=True).data)
+        qs = Class.objects.filter(course=course).order_by('order', 'scheduled_start')
+        return Response(ClassSerializer(qs, many=True, context={'request': request}).data)
 
     # ── enroll ─────────────────────────────────────────────────────────────
     @action(detail=True, methods=['post'], permission_classes=[IsAuthenticated])
@@ -85,6 +116,23 @@ class CourseViewSet(viewsets.ModelViewSet):
 
         if Progress.objects.filter(student=user, course=course).exists():
             return Response({'detail': 'Already enrolled.'}, status=400)
+
+        # 18+ content gate — verify user age
+        if course.content_rating == 'adult':
+            dob = getattr(user, 'date_of_birth', None)
+            if dob:
+                from datetime import date
+                age = (date.today() - dob).days // 365
+                if age < 18:
+                    return Response({
+                        'detail': 'This course is restricted to users 18 and older.',
+                        'requires_age_verification': True,
+                    }, status=403)
+            else:
+                return Response({
+                    'detail': 'Please verify your age to access 18+ content.',
+                    'requires_age_verification': True,
+                }, status=403)
 
         # Gate paid courses — require a completed payment
         if not course.is_free and course.price_amd:
@@ -207,3 +255,22 @@ class ClassViewSet(viewsets.ModelViewSet):
             class_session=cls, sender=request.user, content=request.data.get('content', '')
         )
         return Response(ClassChatSerializer(msg).data, status=201)
+
+
+class SectionViewSet(viewsets.ModelViewSet):
+    queryset = Section.objects.all()
+    serializer_class = SectionSerializer
+    filterset_fields = ['course']
+    ordering = ['order']
+
+    def get_permissions(self):
+        if self.action in ('create', 'update', 'partial_update', 'destroy'):
+            return [IsAuthenticated(), IsTutor()]
+        return [AllowAny()]
+
+    def perform_create(self, serializer):
+        course = serializer.validated_data['course']
+        if course.tutor != self.request.user and self.request.user.role != 'admin':
+            from rest_framework.exceptions import PermissionDenied
+            raise PermissionDenied('You do not own this course.')
+        serializer.save()

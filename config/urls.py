@@ -51,7 +51,14 @@ urlpatterns = [
         path('', include('apps.videos.urls')),
         path('', include('apps.ratings.urls')),
         path('', include('apps.payments.urls')),
+        path('moderation/', include('apps.moderation.urls')),
     ])),
+]
+
+# Secure video stream endpoint (token-gated)
+from apps.videos.views import VideoStreamView
+urlpatterns += [
+    path('api/videos/<int:pk>/stream/', VideoStreamView.as_view(), name='video_stream'),
 ]
 
 if settings.DEBUG:
