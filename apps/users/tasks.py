@@ -91,3 +91,49 @@ def send_welcome_email_task(self, user_email, first_name, role):
         msg.send()
     except Exception as exc:
         raise self.retry(exc=exc, countdown=60)
+
+
+@shared_task(bind=True, max_retries=3)
+def send_password_reset_task(self, user_email, otp_code, first_name=''):
+    name = first_name or 'there'
+    subject = 'Arm Academy — Reset Your Password'
+    text = f'Hi {name},\n\nYour password reset code is: {otp_code}\n\nExpires in 30 minutes.\n\nArm Academy'
+    html = _html_email(
+        'Reset your password',
+        f'''<p style="color:#475569">Hi {name},</p>
+        <p style="color:#475569">Enter this code to reset your password:</p>
+        <div style="background:#f1f5f9;border-radius:12px;padding:24px;text-align:center;margin:24px 0">
+          <span style="font-size:40px;font-weight:800;letter-spacing:12px;color:#4f46e5">{otp_code}</span>
+        </div>
+        <p style="color:#94a3b8;font-size:13px">Valid for <strong>30 minutes</strong>. If you didn\'t request this, ignore this email.</p>''',
+    )
+    try:
+        msg = EmailMultiAlternatives(subject, text, settings.DEFAULT_FROM_EMAIL, [user_email])
+        msg.attach_alternative(html, 'text/html')
+        msg.send()
+    except Exception as exc:
+        raise self.retry(exc=exc, countdown=30)
+
+
+@shared_task(bind=True, max_retries=3)
+def send_payment_confirmation_task(self, user_email, first_name, course_title, amount_amd):
+    name = first_name or 'there'
+    subject = f'Payment Confirmed — {course_title}'
+    text = f'Hi {name},\n\nYour payment of {amount_amd:,.0f} AMD for "{course_title}" was successful. You are now enrolled.\n\nArm Academy'
+    html = _html_email(
+        'Payment Confirmed ✓',
+        f'''<p style="color:#475569">Hi {name},</p>
+        <p style="color:#475569">Your payment has been confirmed and you are now enrolled in:</p>
+        <div style="background:#f0fdf4;border-radius:12px;padding:20px;text-align:center;margin:24px 0;border:1px solid #bbf7d0">
+          <div style="font-size:18px;font-weight:700;color:#166534">{course_title}</div>
+          <div style="font-size:28px;font-weight:800;color:#16a34a;margin-top:8px">{amount_amd:,.0f} AMD</div>
+        </div>''',
+        cta_text='Start Learning',
+        cta_url=f'{settings.FRONTEND_URL}/dashboard',
+    )
+    try:
+        msg = EmailMultiAlternatives(subject, text, settings.DEFAULT_FROM_EMAIL, [user_email])
+        msg.attach_alternative(html, 'text/html')
+        msg.send()
+    except Exception as exc:
+        raise self.retry(exc=exc, countdown=30)

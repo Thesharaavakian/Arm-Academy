@@ -137,7 +137,27 @@ class ClassViewSet(viewsets.ModelViewSet):
     def get_permissions(self):
         if self.action in ('create', 'update', 'partial_update', 'destroy'):
             return [IsAuthenticated(), IsTutor()]
+        if self.action == 'my_upcoming':
+            return [IsAuthenticated()]
         return [AllowAny()]
+
+    @action(detail=False, methods=['get'], permission_classes=[IsAuthenticated])
+    def my_upcoming(self, request):
+        """Scheduled classes for the courses the current student is enrolled in."""
+        from apps.ratings.models import Progress
+        enrolled_ids = Progress.objects.filter(
+            student=request.user
+        ).values_list('course_id', flat=True)
+
+        classes = (
+            Class.objects.filter(
+                course_id__in=enrolled_ids,
+                status='scheduled',
+            )
+            .select_related('course', 'course__tutor')
+            .order_by('scheduled_start')[:8]
+        )
+        return Response(ClassSerializer(classes, many=True).data)
 
     def perform_create(self, serializer):
         # Ensure the course belongs to the requesting tutor

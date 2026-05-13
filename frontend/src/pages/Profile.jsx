@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import {
   Camera, Save, Loader2, Star, BookOpen, Users, Award, Edit3,
@@ -272,7 +272,9 @@ function PhoneSection({ user, onUserUpdate }) {
 export default function Profile() {
   const { user, updateUser } = useAuthStore()
   const queryClient = useQueryClient()
-  const [editing, setEditing] = useState(false)
+  const [editing, setEditing]       = useState(false)
+  const [avatarLoading, setAvatarLoading] = useState(false)
+  const avatarInputRef = useRef(null)
 
   const { data: profile } = useQuery({
     queryKey: ['profile'],
@@ -319,6 +321,24 @@ export default function Profile() {
     queryClient.invalidateQueries(['profile'])
   }
 
+  const handleAvatarChange = async (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    setAvatarLoading(true)
+    try {
+      const fd = new FormData()
+      fd.append('profile_picture', file)
+      const { data } = await usersApi.uploadAvatar(fd)
+      updateUser(data)
+      queryClient.invalidateQueries(['profile'])
+      toast({ title: 'Profile picture updated!', variant: 'success' })
+    } catch {
+      toast({ title: 'Failed to upload image', variant: 'destructive' })
+    } finally {
+      setAvatarLoading(false)
+    }
+  }
+
   return (
     <DashboardLayout>
       <div className="max-w-3xl space-y-6">
@@ -336,6 +356,15 @@ export default function Profile() {
                     {getInitials(fullName)}
                   </AvatarFallback>
                 </Avatar>
+                <button
+                  onClick={() => avatarInputRef.current?.click()}
+                  disabled={avatarLoading}
+                  className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-primary text-white shadow-md border-2 border-white hover:bg-primary/90 transition-colors disabled:opacity-50"
+                  title="Change profile picture"
+                >
+                  {avatarLoading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Camera className="h-3.5 w-3.5" />}
+                </button>
+                <input ref={avatarInputRef} type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
               </div>
               {!editing
                 ? <Button variant="outline" onClick={() => setEditing(true)}><Edit3 className="h-4 w-4 mr-2" />Edit Profile</Button>

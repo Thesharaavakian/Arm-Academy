@@ -1,5 +1,5 @@
 import { Link, useNavigate, useLocation } from 'react-router-dom'
-import { BookOpen, LayoutDashboard, LogOut, User, Menu, X, Users, ChevronDown, Bell } from 'lucide-react'
+import { BookOpen, LayoutDashboard, LogOut, User, Menu, X, Users, ChevronDown, Bell, MessageSquare } from 'lucide-react'
 import { useState, useEffect } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { authApi } from '@/api/auth'
@@ -14,6 +14,10 @@ import { cn, getInitials } from '@/lib/utils'
 const NAV_LINKS = [
   { to: '/courses', label: 'Courses' },
   { to: '/tutors', label: 'Tutors' },
+]
+
+const AUTH_NAV_LINKS = [
+  { to: '/messages', label: 'Messages', icon: MessageSquare },
 ]
 
 export default function Navbar() {
@@ -61,17 +65,17 @@ export default function Navbar() {
         {/* Desktop nav */}
         <nav className="hidden md:flex items-center gap-1">
           {NAV_LINKS.map(({ to, label }) => (
-            <Link
-              key={to}
-              to={to}
-              className={cn(
-                'px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
-                isActive(to)
-                  ? 'text-primary bg-primary/8'
-                  : 'text-slate-600 hover:text-primary hover:bg-slate-50',
-              )}
-            >
+            <Link key={to} to={to}
+              className={cn('px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+                isActive(to) ? 'text-primary bg-primary/8' : 'text-slate-600 hover:text-primary hover:bg-slate-50')}>
               {label}
+            </Link>
+          ))}
+          {isAuthenticated && AUTH_NAV_LINKS.map(({ to, label, icon: Icon }) => (
+            <Link key={to} to={to}
+              className={cn('flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium transition-all duration-200',
+                isActive(to) ? 'text-primary bg-primary/8' : 'text-slate-600 hover:text-primary hover:bg-slate-50')}>
+              {Icon && <Icon className="h-4 w-4" />}{label}
             </Link>
           ))}
         </nav>

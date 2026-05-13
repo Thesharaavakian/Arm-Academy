@@ -20,4 +20,8 @@ export const authApi = {
   // Phone
   sendPhoneOTP:   (phone_number)           => api.post('/auth/send-phone-otp/',    { phone_number }),
   verifyPhone:    (code)                   => api.post('/auth/verify-phone/',      { code }),
+
+  // Password reset
+  forgotPassword: (email)                  => api.post('/auth/forgot-password/',   { email }),
+  resetPassword:  (email, code, new_password) => api.post('/auth/reset-password/', { email, code, new_password }),
 }

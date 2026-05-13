@@ -310,6 +310,82 @@ class LogoutView(generics.GenericAPIView):
         return Response({'detail': 'Logged out.'})
 
 
+# ── Rate-limited throttle classes ─────────────────────────────────────────────
+
+from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
+
+class LoginThrottle(AnonRateThrottle):
+    scope = 'login'
+
+class OTPThrottle(AnonRateThrottle):
+    scope = 'otp'
+
+class PasswordResetThrottle(AnonRateThrottle):
+    scope = 'password_reset'
+
+
+# ── Password reset ────────────────────────────────────────────────────────────
+
+class ForgotPasswordView(generics.GenericAPIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [PasswordResetThrottle]
+
+    def post(self, request):
+        email = request.data.get('email', '').strip().lower()
+        # Always return 200 — don't reveal if email exists
+        try:
+            user = CustomUser.objects.get(email=email)
+            otp = OTPVerification.create_for_user(user, OTPVerification.EMAIL, expires_minutes=30)
+            try:
+                from .tasks import send_password_reset_task
+                send_password_reset_task.delay(user.email, otp.code, user.first_name)
+            except Exception:
+                _send_email_sync(user.email, otp.code, user.first_name)
+        except CustomUser.DoesNotExist:
+            pass
+        return Response({'detail': 'If that email exists, a reset code has been sent.'})
+
+
+class ResetPasswordView(generics.GenericAPIView):
+    permission_classes = [AllowAny]
+    throttle_classes = [PasswordResetThrottle]
+
+    def post(self, request):
+        email       = request.data.get('email', '').strip().lower()
+        code        = request.data.get('code', '').strip()
+        new_password = request.data.get('new_password', '')
+
+        if len(new_password) < 8:
+            return Response({'detail': 'Password must be at least 8 characters.'}, status=400)
+
+        try:
+            user = CustomUser.objects.get(email=email)
+        except CustomUser.DoesNotExist:
+            return Response({'detail': 'Invalid request.'}, status=400)
+
+        otp = OTPVerification.objects.filter(
+            user=user, otp_type=OTPVerification.EMAIL, code=code, is_used=False
+        ).order_by('-created_at').first()
+
+        if not otp or not otp.is_valid:
+            return Response({'detail': 'Invalid or expired code.'}, status=400)
+
+        otp.consume()
+        user.set_password(new_password)
+        user.save(update_fields=['password'])
+
+        # Blacklist all existing tokens by rotating (optional — uncomment if needed)
+        # from rest_framework_simplejwt.token_blacklist.models import OutstandingToken
+        # OutstandingToken.objects.filter(user=user).update(...)
+
+        tokens = _issue_tokens(user)
+        return Response({
+            'detail': 'Password reset successfully.',
+            'user': UserDetailSerializer(user).data,
+            **tokens,
+        })
+
+
 # ── UserViewSet ───────────────────────────────────────────────────────────────
 
 class UserViewSet(viewsets.ModelViewSet):
@@ -317,7 +393,7 @@ class UserViewSet(viewsets.ModelViewSet):
     serializer_class = UserSerializer
 
     # Actions that are publicly accessible (no login required)
-    _PUBLIC_ACTIONS = frozenset({'create', 'list', 'retrieve', 'featured_tutors', 'site_stats'})
+    _PUBLIC_ACTIONS = frozenset({'create', 'list', 'retrieve', 'featured_tutors', 'site_stats', 'courses', 'reviews'})
 
     def get_permissions(self):
         if self.action in self._PUBLIC_ACTIONS:
@@ -356,13 +432,25 @@ class UserViewSet(viewsets.ModelViewSet):
         qs = Course.objects.filter(tutor=user, is_published=True)
         return Response(CourseSerializer(qs, many=True, context={'request': request}).data)
 
-    # ── reviews ──
+    # ── reviews received (works for tutors via course reviews) ──
     @action(detail=True, methods=['get'])
     def reviews(self, request, pk=None):
         from apps.ratings.models import Review
         from apps.ratings.serializers import ReviewSerializer
         user = self.get_object()
-        return Response(ReviewSerializer(Review.objects.filter(tutor=user), many=True).data)
+        # Reviews left on courses owned by this tutor
+        course_reviews = Review.objects.filter(course__tutor=user).order_by('-created_at')
+        return Response(ReviewSerializer(course_reviews, many=True).data)
+
+    # ── my_reviews shortcut for logged-in tutor ──
+    @action(detail=False, methods=['get'])
+    def my_reviews(self, request):
+        from apps.ratings.models import Review
+        from apps.ratings.serializers import ReviewSerializer
+        reviews = Review.objects.filter(
+            course__tutor=request.user
+        ).select_related('reviewer', 'course').order_by('-created_at')[:20]
+        return Response(ReviewSerializer(reviews, many=True).data)
 
     # ── featured tutors (for landing page) ──
     @action(detail=False, methods=['get'])

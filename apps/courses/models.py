@@ -21,8 +21,12 @@ class Course(models.Model):
     category = models.CharField(max_length=100, help_text='Course category in Armenian')
     level = models.CharField(max_length=20, choices=LEVEL_CHOICES, default='beginner')
     
-    # Pricing
+    # Pricing (AMD — Armenian Dram)
     is_free = models.BooleanField(default=True)
+    price_amd = models.DecimalField(
+        max_digits=10, decimal_places=0, null=True, blank=True,
+        help_text='Price in Armenian Dram (AMD). Leave blank if free.',
+    )
     subscription_required = models.BooleanField(default=False)
     
     # Stats

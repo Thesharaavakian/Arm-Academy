@@ -4,26 +4,28 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Toaster } from '@/components/ui/toaster'
 import { ProtectedRoute } from '@/components/auth/ProtectedRoute'
 import { useAuthStore } from '@/store/authStore'
+import CookieBanner from '@/components/ui/CookieBanner'
 
-const Landing       = lazy(() => import('@/pages/Landing'))
-const Login         = lazy(() => import('@/pages/Login'))
-const Register      = lazy(() => import('@/pages/Register'))
-const VerifyEmail   = lazy(() => import('@/pages/VerifyEmail'))
-const Dashboard     = lazy(() => import('@/pages/Dashboard'))
-const Courses       = lazy(() => import('@/pages/Courses'))
-const CourseDetail  = lazy(() => import('@/pages/CourseDetail'))
-const Tutors        = lazy(() => import('@/pages/Tutors'))
-const Profile       = lazy(() => import('@/pages/Profile'))
-const CreateCourse  = lazy(() => import('@/pages/tutor/CreateCourse'))
-const ManageCourse  = lazy(() => import('@/pages/tutor/ManageCourse'))
-const NotFound      = lazy(() => import('@/pages/NotFound'))
+const Landing        = lazy(() => import('@/pages/Landing'))
+const Login          = lazy(() => import('@/pages/Login'))
+const Register       = lazy(() => import('@/pages/Register'))
+const VerifyEmail    = lazy(() => import('@/pages/VerifyEmail'))
+const ForgotPassword = lazy(() => import('@/pages/ForgotPassword'))
+const ResetPassword  = lazy(() => import('@/pages/ResetPassword'))
+const Dashboard      = lazy(() => import('@/pages/Dashboard'))
+const Courses        = lazy(() => import('@/pages/Courses'))
+const CourseDetail   = lazy(() => import('@/pages/CourseDetail'))
+const Tutors         = lazy(() => import('@/pages/Tutors'))
+const Profile        = lazy(() => import('@/pages/Profile'))
+const Messages       = lazy(() => import('@/pages/Messages'))
+const CreateCourse   = lazy(() => import('@/pages/tutor/CreateCourse'))
+const ManageCourse   = lazy(() => import('@/pages/tutor/ManageCourse'))
+const NotFound       = lazy(() => import('@/pages/NotFound'))
 
 function TutorRoute({ children }) {
   const { user, isAuthenticated } = useAuthStore()
   if (!isAuthenticated) return <Navigate to="/login" replace />
-  if (!['tutor', 'teacher', 'admin'].includes(user?.role)) {
-    return <Navigate to="/dashboard" replace />
-  }
+  if (!['tutor', 'teacher', 'admin'].includes(user?.role)) return <Navigate to="/dashboard" replace />
   return children
 }
 
@@ -48,25 +50,30 @@ export default function App() {
       <BrowserRouter>
         <Suspense fallback={<PageLoader />}>
           <Routes>
-            <Route path="/"                  element={<Landing />} />
-            <Route path="/login"             element={<Login />} />
-            <Route path="/register"          element={<Register />} />
-            <Route path="/verify-email"      element={<VerifyEmail />} />
-            <Route path="/courses"           element={<Courses />} />
-            <Route path="/courses/:id"       element={<CourseDetail />} />
-            <Route path="/tutors"            element={<Tutors />} />
+            {/* Public */}
+            <Route path="/"                 element={<Landing />} />
+            <Route path="/login"            element={<Login />} />
+            <Route path="/register"         element={<Register />} />
+            <Route path="/verify-email"     element={<VerifyEmail />} />
+            <Route path="/forgot-password"  element={<ForgotPassword />} />
+            <Route path="/reset-password"   element={<ResetPassword />} />
+            <Route path="/courses"          element={<Courses />} />
+            <Route path="/courses/:id"      element={<CourseDetail />} />
+            <Route path="/tutors"           element={<Tutors />} />
 
             {/* Protected — any authenticated user */}
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />
             <Route path="/profile"   element={<ProtectedRoute><Profile /></ProtectedRoute>} />
+            <Route path="/messages"  element={<ProtectedRoute><Messages /></ProtectedRoute>} />
 
             {/* Protected — tutors/teachers only */}
-            <Route path="/create-course"         element={<TutorRoute><CreateCourse /></TutorRoute>} />
-            <Route path="/courses/:id/manage"    element={<TutorRoute><ManageCourse /></TutorRoute>} />
+            <Route path="/create-course"      element={<TutorRoute><CreateCourse /></TutorRoute>} />
+            <Route path="/courses/:id/manage" element={<TutorRoute><ManageCourse /></TutorRoute>} />
 
             <Route path="*" element={<NotFound />} />
           </Routes>
         </Suspense>
+        <CookieBanner />
       </BrowserRouter>
       <Toaster />
     </QueryClientProvider>

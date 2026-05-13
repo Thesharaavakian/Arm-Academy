@@ -11,7 +11,7 @@ class CourseSerializer(serializers.ModelSerializer):
         model = Course
         fields = [
             'id', 'title', 'description', 'tutor', 'tutor_name',
-            'cover_image', 'category', 'level', 'is_free',
+            'cover_image', 'category', 'level', 'is_free', 'price_amd',
             'subscription_required', 'total_students', 'average_rating',
             'total_reviews', 'is_published', 'is_enrolled', 'is_owner',
             'created_at', 'updated_at',

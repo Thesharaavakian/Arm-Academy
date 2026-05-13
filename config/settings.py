@@ -27,6 +27,7 @@ INSTALLED_APPS = [
     'apps.messaging',
     'apps.videos',
     'apps.ratings',
+    'apps.payments',
 ]
 
 MIDDLEWARE = [
@@ -123,6 +124,18 @@ REST_FRAMEWORK = {
     ],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 12,
+    # Rate limiting — prevent brute-force on auth/OTP endpoints
+    'DEFAULT_THROTTLE_CLASSES': [
+        'rest_framework.throttling.AnonRateThrottle',
+        'rest_framework.throttling.UserRateThrottle',
+    ],
+    'DEFAULT_THROTTLE_RATES': {
+        'anon': '200/day',
+        'user': '2000/day',
+        'login': '10/minute',
+        'otp': '5/minute',
+        'password_reset': '3/minute',
+    },
 }
 
 # JWT
@@ -176,3 +189,12 @@ EMAIL_USE_TLS = config('EMAIL_USE_TLS', default=True, cast=bool)
 EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@armacademy.am')
+
+# Stripe — payments in AMD (Armenian Dram)
+STRIPE_SECRET_KEY      = config('STRIPE_SECRET_KEY', default='')
+STRIPE_PUBLISHABLE_KEY = config('STRIPE_PUBLISHABLE_KEY', default='')
+STRIPE_WEBHOOK_SECRET  = config('STRIPE_WEBHOOK_SECRET', default='')
+CURRENCY               = 'amd'           # Armenian Dram — ISO 4217
+
+# Frontend URL (used in payment redirect links and emails)
+FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173')
