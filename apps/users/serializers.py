@@ -7,14 +7,13 @@ class UserSerializer(serializers.ModelSerializer):
 
     class Meta:
         model = CustomUser
+        # email, phone_number, paypal_me_link omitted — private; only in UserDetailSerializer (owner/admin)
         fields = [
-            'id', 'username', 'email', 'first_name', 'last_name', 'display_name',
+            'id', 'username', 'first_name', 'last_name', 'display_name',
             'role', 'bio', 'profile_picture', 'is_verified',
             'expertise_areas', 'hourly_rate', 'average_rating',
-            'total_reviews', 'total_students', 'phone_number',
-            'paypal_me_link',
-            'email_verified', 'phone_verified', 'two_fa_enabled',
-            'created_at', 'updated_at',
+            'total_reviews', 'total_students',
+            'email_verified', 'created_at', 'updated_at',
         ]
         read_only_fields = [
             'id', 'created_at', 'updated_at',

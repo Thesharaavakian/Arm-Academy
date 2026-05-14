@@ -33,10 +33,12 @@ class CourseViewSet(viewsets.ModelViewSet):
         return Course.objects.filter(is_published=True)
 
     def get_permissions(self):
-        if self.action in ('create',):
+        if self.action in ('create', 'my_courses', 'publish', 'unpublish', 'students'):
             return [IsAuthenticated(), IsTutor()]
         if self.action in ('update', 'partial_update', 'destroy'):
             return [IsAuthenticated(), IsTutor(), IsCourseOwnerOrReadOnly()]
+        if self.action == 'enroll':
+            return [IsAuthenticated()]
         return [AllowAny()]
 
     def perform_create(self, serializer):

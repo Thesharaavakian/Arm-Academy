@@ -444,6 +444,12 @@ class UserViewSet(viewsets.ModelViewSet):
             return [AllowAny()]
         return [IsAuthenticated()]
 
+    def perform_destroy(self, instance):
+        from rest_framework.exceptions import PermissionDenied
+        if instance != self.request.user and self.request.user.role != 'admin':
+            raise PermissionDenied('You can only delete your own account.')
+        instance.delete()
+
     def get_serializer_class(self):
         if self.action in ['retrieve', 'profile', 'update', 'partial_update']:
             return UserDetailSerializer
