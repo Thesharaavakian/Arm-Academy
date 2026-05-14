@@ -26,8 +26,10 @@ class CourseViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
-        # Tutors can see their own unpublished courses
-        if self.action in ('update', 'partial_update', 'destroy', 'my_courses'):
+        # Tutors can see and manage their own courses (published or not)
+        tutor_actions = ('update', 'partial_update', 'destroy', 'my_courses',
+                         'publish', 'unpublish', 'students')
+        if self.action in tutor_actions:
             if user.is_authenticated and user.is_tutor:
                 return Course.objects.filter(tutor=user)
         return Course.objects.filter(is_published=True)
