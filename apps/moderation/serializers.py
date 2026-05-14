@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import ContentReport, ModerationLog
+from .models import ContentReport
 
 
 class ContentReportSerializer(serializers.ModelSerializer):

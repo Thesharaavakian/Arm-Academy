@@ -4,7 +4,7 @@ from .models import Video, Recording
 
 class VideoSerializer(serializers.ModelSerializer):
     uploader_name = serializers.CharField(source='uploaded_by.get_full_name', read_only=True)
-    
+
     class Meta:
         model = Video
         fields = [
@@ -18,7 +18,7 @@ class VideoSerializer(serializers.ModelSerializer):
 class RecordingSerializer(serializers.ModelSerializer):
     class_title = serializers.CharField(source='class_session.title', read_only=True)
     video_data = VideoSerializer(source='video', read_only=True)
-    
+
     class Meta:
         model = Recording
         fields = [

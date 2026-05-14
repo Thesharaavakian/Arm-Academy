@@ -114,7 +114,7 @@ def send_welcome_email_task(self, user_email, first_name, role):
         )
         msg.attach_alternative(
             _html_email(
-                f'Welcome to Arm Academy!',
+                'Welcome to Arm Academy!',
                 f'''<p style="color:#475569">Hi {name},</p>
                 <p style="color:#475569">Your email is verified and your {role_label} account is now active. Start exploring.</p>''',
                 cta_text='Go to Dashboard',

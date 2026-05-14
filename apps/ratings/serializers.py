@@ -23,7 +23,7 @@ class ReviewSerializer(serializers.ModelSerializer):
 
 class ProgressSerializer(serializers.ModelSerializer):
     course_title = serializers.CharField(source='course.title', read_only=True)
-    
+
     class Meta:
         model = Progress
         fields = [
@@ -40,7 +40,7 @@ class ProgressSerializer(serializers.ModelSerializer):
 class AttendanceSerializer(serializers.ModelSerializer):
     student_name = serializers.CharField(source='student.get_full_name', read_only=True)
     class_title = serializers.CharField(source='class_session.title', read_only=True)
-    
+
     class Meta:
         model = Attendance
         fields = [
@@ -53,7 +53,7 @@ class AttendanceSerializer(serializers.ModelSerializer):
 class CertificateSerializer(serializers.ModelSerializer):
     course_title = serializers.CharField(source='course.title', read_only=True)
     student_name = serializers.CharField(source='student.get_full_name', read_only=True)
-    
+
     class Meta:
         model = Certificate
         fields = [

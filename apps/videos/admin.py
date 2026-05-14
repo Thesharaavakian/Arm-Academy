@@ -1,6 +1,7 @@
 from django.contrib import admin
 from .models import Video, Recording
 
+
 @admin.register(Video)
 class VideoAdmin(admin.ModelAdmin):
     list_display = ['title', 'uploaded_by', 'status', 'view_count', 'created_at']

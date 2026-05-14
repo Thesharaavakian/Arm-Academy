@@ -10,6 +10,7 @@ from apps.users.views import (
     ForgotPasswordView, ResetPasswordView,
 )
 from apps.payments.views import StripeWebhookView
+from apps.videos.views import VideoStreamView
 
 urlpatterns = [
     path('', api_root, name='api-root'),
@@ -55,8 +56,6 @@ urlpatterns = [
     ])),
 ]
 
-# Secure video stream endpoint (token-gated)
-from apps.videos.views import VideoStreamView
 urlpatterns += [
     path('api/videos/<int:pk>/stream/', VideoStreamView.as_view(), name='video_stream'),
 ]

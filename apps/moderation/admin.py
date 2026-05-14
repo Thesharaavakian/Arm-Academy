@@ -14,9 +14,12 @@ class ContentReportAdmin(admin.ModelAdmin):
 
     @admin.display(description='Target')
     def target_summary(self, obj):
-        if obj.course:        return f'Course: {obj.course.title[:40]}'
-        if obj.reported_user: return f'User: {obj.reported_user.username}'
-        if obj.review:        return f'Review #{obj.review.id}'
+        if obj.course:
+            return f'Course: {obj.course.title[:40]}'
+        if obj.reported_user:
+            return f'User: {obj.reported_user.username}'
+        if obj.review:
+            return f'Review #{obj.review.id}'
         return '—'
 
     @admin.action(description='Mark as Reviewed (No Action)')

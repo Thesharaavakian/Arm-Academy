@@ -1,6 +1,4 @@
 from django.contrib import admin
-from django.utils import timezone
-from django.utils.html import format_html
 from .models import Course, Class, Section
 
 
@@ -12,7 +10,10 @@ class CourseAdmin(admin.ModelAdmin):
     ]
     list_filter  = ['moderation_status', 'content_rating', 'level', 'is_published', 'is_free']
     search_fields = ['title', 'description', 'tutor__username', 'tutor__email']
-    readonly_fields = ['created_at', 'updated_at', 'moderated_by', 'moderated_at', 'total_students', 'average_rating', 'total_reviews']
+    readonly_fields = [
+        'created_at', 'updated_at', 'moderated_by', 'moderated_at',
+        'total_students', 'average_rating', 'total_reviews',
+    ]
     actions = ['approve_courses', 'reject_courses', 'suspend_courses']
     ordering = ['-created_at']
 
@@ -22,7 +23,7 @@ class CourseAdmin(admin.ModelAdmin):
         ('Pricing',      {'fields': ('is_free', 'price_amd', 'subscription_required')}),
         ('Stats',        {'fields': ('total_students', 'average_rating', 'total_reviews', 'total_lectures')}),
         ('🔞 Content',   {'fields': ('content_rating',)}),
-        ('🛡 Moderation',{'fields': ('moderation_status', 'rejection_reason', 'moderated_by', 'moderated_at')}),
+        ('🛡 Moderation', {'fields': ('moderation_status', 'rejection_reason', 'moderated_by', 'moderated_at')}),
         ('Visibility',   {'fields': ('is_published', 'created_at', 'updated_at')}),
     )
 

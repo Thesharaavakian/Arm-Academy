@@ -5,7 +5,7 @@ from .models import Message, GroupMessage, ClassChat
 class MessageSerializer(serializers.ModelSerializer):
     sender_name = serializers.CharField(source='sender.get_full_name', read_only=True)
     recipient_name = serializers.CharField(source='recipient.get_full_name', read_only=True)
-    
+
     class Meta:
         model = Message
         fields = [
@@ -18,7 +18,7 @@ class MessageSerializer(serializers.ModelSerializer):
 class GroupMessageSerializer(serializers.ModelSerializer):
     sender_name = serializers.CharField(source='sender.get_full_name', read_only=True)
     group_name = serializers.CharField(source='group.name', read_only=True)
-    
+
     class Meta:
         model = GroupMessage
         fields = [
@@ -31,7 +31,7 @@ class GroupMessageSerializer(serializers.ModelSerializer):
 class ClassChatSerializer(serializers.ModelSerializer):
     sender_name = serializers.CharField(source='sender.get_full_name', read_only=True)
     class_title = serializers.CharField(source='class_session.title', read_only=True)
-    
+
     class Meta:
         model = ClassChat
         fields = [

@@ -3,7 +3,7 @@ import io
 import base64
 from django.contrib.auth import authenticate
 from django.core.cache import cache
-from django.db.models import Avg, Count
+from rest_framework.throttling import AnonRateThrottle
 from rest_framework import viewsets, generics, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -14,7 +14,7 @@ from rest_framework_simplejwt.exceptions import TokenError
 
 from .models import CustomUser, OTPVerification
 from .serializers import UserSerializer, UserDetailSerializer, UserRegistrationSerializer
-from .permissions import IsTutor, IsEmailVerified
+from .permissions import IsEmailVerified
 
 
 # ── helpers ──────────────────────────────────────────────────────────────────
@@ -355,13 +355,14 @@ class LogoutView(generics.GenericAPIView):
 
 # ── Rate-limited throttle classes ─────────────────────────────────────────────
 
-from rest_framework.throttling import AnonRateThrottle, UserRateThrottle
 
 class LoginThrottle(AnonRateThrottle):
     scope = 'login'
 
+
 class OTPThrottle(AnonRateThrottle):
     scope = 'otp'
+
 
 class PasswordResetThrottle(AnonRateThrottle):
     scope = 'password_reset'

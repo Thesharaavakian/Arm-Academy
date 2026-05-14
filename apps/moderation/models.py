@@ -31,7 +31,9 @@ class ContentReport(models.Model):
     # ── Target (at least one must be set) ──────────────────────────────────
     course        = models.ForeignKey('courses.Course',  on_delete=models.CASCADE, null=True, blank=True, related_name='reports')
     review        = models.ForeignKey('ratings.Review',  on_delete=models.CASCADE, null=True, blank=True, related_name='reports')
-    reported_user = models.ForeignKey(CustomUser,        on_delete=models.CASCADE, null=True, blank=True, related_name='reports_against')
+    reported_user = models.ForeignKey(
+        CustomUser, on_delete=models.CASCADE, null=True, blank=True, related_name='reports_against'
+    )
     class_session = models.ForeignKey('courses.Class',   on_delete=models.CASCADE, null=True, blank=True, related_name='reports')
 
     reason      = models.CharField(max_length=30, choices=REASON_CHOICES)
@@ -69,7 +71,7 @@ class ModerationLog(models.Model):
         ('suspend',  'Content Suspended'),
         ('restore',  'Content Restored'),
         ('ban_user', 'User Banned'),
-        ('warn_user','User Warned'),
+        ('warn_user', 'User Warned'),
         ('report_resolved', 'Report Resolved'),
     ]
 
@@ -79,7 +81,9 @@ class ModerationLog(models.Model):
 
     # References to the moderated content
     course        = models.ForeignKey('courses.Course', on_delete=models.SET_NULL, null=True, blank=True)
-    reported_user = models.ForeignKey(CustomUser,       on_delete=models.SET_NULL, null=True, blank=True, related_name='moderation_logs')
+    reported_user = models.ForeignKey(
+        CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='moderation_logs'
+    )
     report        = models.ForeignKey(ContentReport,    on_delete=models.SET_NULL, null=True, blank=True)
 
     created_at = models.DateTimeField(auto_now_add=True)

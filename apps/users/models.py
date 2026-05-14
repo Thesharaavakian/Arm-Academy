@@ -33,8 +33,10 @@ class CustomUser(AbstractUser):
     # Contact
     phone_number   = models.CharField(max_length=20, blank=True, null=True)
     # Tutor payment — PayPal.me personal link (no business reg needed)
-    paypal_me_link = models.URLField(blank=True, null=True,
-        help_text='e.g. https://paypal.me/yourname — used when Stripe is not configured')
+    paypal_me_link = models.URLField(
+        blank=True, null=True,
+        help_text='e.g. https://paypal.me/yourname — used when Stripe is not configured',
+    )
 
     # Age & legal
     date_of_birth     = models.DateField(null=True, blank=True)

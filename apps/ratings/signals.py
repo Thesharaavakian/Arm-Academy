@@ -11,7 +11,7 @@ def update_progress_on_attendance(sender, instance, created, **kwargs):
         return
 
     from apps.courses.models import Class
-    from .models import Attendance, Progress, Certificate
+    from .models import Attendance, Progress
 
     course = instance.class_session.course
     student = instance.student

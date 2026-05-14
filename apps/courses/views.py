@@ -1,4 +1,5 @@
-from rest_framework import viewsets, status
+from datetime import date
+from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -189,7 +190,6 @@ class CourseViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
     def students(self, request, pk=None):
         from apps.ratings.models import Progress
-        from apps.users.serializers import UserSerializer
         course = self.get_object()
         if course.tutor != request.user and request.user.role != 'admin':
             return Response({'detail': 'Only the course owner can view students.'}, status=403)

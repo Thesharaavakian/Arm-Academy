@@ -1,6 +1,7 @@
 from django.contrib import admin
 from .models import Review, Progress, Attendance, Certificate
 
+
 @admin.register(Review)
 class ReviewAdmin(admin.ModelAdmin):
     list_display = ['reviewer', 'rating', 'tutor', 'course', 'is_verified', 'created_at']

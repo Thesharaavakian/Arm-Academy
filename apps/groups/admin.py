@@ -1,6 +1,7 @@
 from django.contrib import admin
 from .models import Group, GroupMembership
 
+
 @admin.register(Group)
 class GroupAdmin(admin.ModelAdmin):
     list_display = ['name', 'group_type', 'creator', 'member_count', 'is_private']
