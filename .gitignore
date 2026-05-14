@@ -13,8 +13,8 @@ dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
+/lib/
+/lib64/
 parts/
 sdist/
 var/
@@ -47,6 +47,11 @@ db.sqlite3-journal
 .coverage
 .pytest_cache/
 htmlcov/
+
+# Node / Frontend
+node_modules/
+frontend/dist/
+frontend/.cache/
 
 # Claude Code
 .claude/
