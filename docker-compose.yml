@@ -1,5 +1,10 @@
 version: '3.9'
 
+# Image names used by CI/CD — `docker compose pull` fetches from ghcr.io.
+# Local dev: `docker compose up --build` builds and tags locally with these names.
+x-backend-image: &backend-image ghcr.io/thesharaavakian/arm-academy:${IMAGE_TAG:-latest}
+x-frontend-image: &frontend-image ghcr.io/thesharaavakian/arm-academy-frontend:${IMAGE_TAG:-latest}
+
 services:
   db:
     image: postgres:15-alpine
@@ -30,13 +35,12 @@ services:
       retries: 5
 
   web:
+    image: *backend-image
     build: .
     env_file: .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-arm_user}:${POSTGRES_PASSWORD:-arm_password}@db:5432/${POSTGRES_DB:-arm_academy}
       REDIS_URL: redis://redis:6379/0
-      DB_HOST: db
-      POSTGRES_USER: ${POSTGRES_USER:-arm_user}
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
@@ -46,16 +50,21 @@ services:
       redis:
         condition: service_healthy
     restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:8000/health/ || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
 
   celery:
+    image: *backend-image
     build: .
     command: ["celery", "-A", "config", "worker", "--loglevel=info", "--concurrency=2"]
     env_file: .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-arm_user}:${POSTGRES_PASSWORD:-arm_password}@db:5432/${POSTGRES_DB:-arm_academy}
       REDIS_URL: redis://redis:6379/0
-      DB_HOST: db
-      POSTGRES_USER: ${POSTGRES_USER:-arm_user}
     volumes:
       - media_volume:/app/media
     depends_on:
@@ -66,16 +75,18 @@ services:
     restart: unless-stopped
 
   nginx:
+    image: *frontend-image
     build:
       context: .
       dockerfile: nginx/Dockerfile
     ports:
-      - "80:80"
+      - "${EXTERNAL_PORT:-8080}:80"
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
     depends_on:
-      - web
+      web:
+        condition: service_healthy
     restart: unless-stopped
 
 volumes:

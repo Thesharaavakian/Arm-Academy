@@ -1,0 +1,63 @@
+# Version control
+.git
+.gitignore
+
+# Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.Python
+*.egg-info/
+dist/
+build/
+.eggs/
+*.egg
+pip-wheel-metadata/
+
+# Virtual environments
+venv/
+.venv/
+env/
+ENV/
+
+# Django
+*.pyc
+local_settings.py
+db.sqlite3
+db.sqlite3-journal
+/staticfiles/
+/media/
+
+# Secrets — never bake into the image
+.env
+.env.*
+!.env.example
+
+# Frontend build artifacts
+frontend/node_modules/
+frontend/dist/
+frontend/.cache/
+
+# Editors and OS
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+Thumbs.db
+
+# Docs and CI (not needed in image)
+README.md
+CONTRIBUTING.md
+API_DOCUMENTATION.md
+.github/
+deploy/
+terraform/
+
+# Tests
+coverage/
+.coverage
+htmlcov/
+.pytest_cache/
