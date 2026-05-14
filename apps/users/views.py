@@ -65,6 +65,15 @@ class RegisterView(generics.CreateAPIView):
     serializer_class = UserRegistrationSerializer
 
     def create(self, request, *args, **kwargs):
+        # Honeypot: bots fill hidden fields, humans leave them blank
+        if request.data.get('website') or request.data.get('phone_confirm'):
+            # Silent 201 — don't reveal bot detection to scrapers
+            return Response({
+                'requires_verification': True,
+                'email': request.data.get('email', ''),
+                'detail': 'Account created. Check your email for a verification code.',
+            }, status=status.HTTP_201_CREATED)
+
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         user = serializer.save()
@@ -79,9 +88,26 @@ class RegisterView(generics.CreateAPIView):
 class CustomLoginView(generics.GenericAPIView):
     permission_classes = [AllowAny]
 
+    _MAX_ATTEMPTS = 5
+    _LOCKOUT_SECONDS = 900  # 15 minutes
+
+    def _lockout_keys(self, identifier, ip):
+        safe = identifier.replace('@', '_').replace('.', '_')[:30]
+        return f'login_lock_{safe}_{ip}', f'login_tries_{safe}_{ip}'
+
     def post(self, request):
         identifier = request.data.get('username', '').strip()
-        password = request.data.get('password', '')
+        password   = request.data.get('password', '')
+        ip         = request.META.get('HTTP_X_FORWARDED_FOR', request.META.get('REMOTE_ADDR', ''))[:45]
+
+        lock_key, try_key = self._lockout_keys(identifier, ip)
+
+        # Check lockout
+        if cache.get(lock_key):
+            return Response(
+                {'detail': 'Too many failed attempts. Account locked for 15 minutes.'},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
 
         # Allow login with email or username
         user = authenticate(request, username=identifier, password=password)
@@ -93,7 +119,23 @@ class CustomLoginView(generics.GenericAPIView):
                 pass
 
         if not user or not user.is_active:
-            return Response({'detail': 'Invalid credentials.'}, status=status.HTTP_401_UNAUTHORIZED)
+            tries = (cache.get(try_key) or 0) + 1
+            cache.set(try_key, tries, self._LOCKOUT_SECONDS)
+            if tries >= self._MAX_ATTEMPTS:
+                cache.set(lock_key, True, self._LOCKOUT_SECONDS)
+                return Response(
+                    {'detail': 'Too many failed attempts. Account locked for 15 minutes.'},
+                    status=status.HTTP_429_TOO_MANY_REQUESTS,
+                )
+            remaining = self._MAX_ATTEMPTS - tries
+            return Response(
+                {'detail': f'Invalid credentials. {remaining} attempt{"s" if remaining != 1 else ""} remaining.'},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        # Success — clear lockout counters
+        cache.delete(lock_key)
+        cache.delete(try_key)
 
         # Email verification gate
         if not user.email_verified:

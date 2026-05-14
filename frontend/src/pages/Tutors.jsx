@@ -114,9 +114,14 @@ function TutorCard({ tutor, index }) {
           </div>
         </div>
 
-        <Button className="w-full" asChild>
-          <Link to={`/courses?tutor_name=${encodeURIComponent(tutor.name)}`}>View Courses</Link>
-        </Button>
+        <div className="flex gap-2">
+          <Button className="flex-1" asChild>
+            <Link to={`/tutors/${tutor.id}`}>View Profile</Link>
+          </Button>
+          <Button variant="outline" size="icon" asChild title="Message this tutor">
+            <Link to={`/messages?with=${tutor.id}`}>💬</Link>
+          </Button>
+        </div>
       </div>
     </div>
   )

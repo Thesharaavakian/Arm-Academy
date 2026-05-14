@@ -31,6 +31,8 @@ export default function Register() {
   const [form, setForm] = useState({
     first_name: '', last_name: '', username: '', email: '', password: '', password2: '',
     role: searchParams.get('role') === 'tutor' ? 'tutor' : 'student',
+    // honeypot — never shown to user, bots fill these in
+    website: '', phone_confirm: '',
   })
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -121,6 +123,14 @@ export default function Register() {
           </div>
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            {/* Honeypot — invisible to real users, bots fill these in */}
+            <div aria-hidden="true" style={{ position: 'absolute', left: '-9999px', opacity: 0, height: 0, overflow: 'hidden' }}>
+              <input name="website" tabIndex={-1} autoComplete="off"
+                value={form.website} onChange={handleChange} />
+              <input name="phone_confirm" tabIndex={-1} autoComplete="off"
+                value={form.phone_confirm} onChange={handleChange} />
+            </div>
+
             {errors.general && (
               <div className="rounded-xl bg-red-50 border border-red-200 text-red-600 text-sm px-4 py-3">{errors.general}</div>
             )}

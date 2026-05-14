@@ -16,6 +16,7 @@ const Dashboard      = lazy(() => import('@/pages/Dashboard'))
 const Courses        = lazy(() => import('@/pages/Courses'))
 const CourseDetail   = lazy(() => import('@/pages/CourseDetail'))
 const Tutors         = lazy(() => import('@/pages/Tutors'))
+const TutorProfile   = lazy(() => import('@/pages/TutorProfile'))
 const Profile        = lazy(() => import('@/pages/Profile'))
 const Messages       = lazy(() => import('@/pages/Messages'))
 const Groups         = lazy(() => import('@/pages/Groups'))
@@ -61,6 +62,7 @@ export default function App() {
             <Route path="/courses"          element={<Courses />} />
             <Route path="/courses/:id"      element={<CourseDetail />} />
             <Route path="/tutors"           element={<Tutors />} />
+            <Route path="/tutors/:id"       element={<TutorProfile />} />
 
             {/* Protected — any authenticated user */}
             <Route path="/dashboard" element={<ProtectedRoute><Dashboard /></ProtectedRoute>} />

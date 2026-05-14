@@ -115,6 +115,32 @@ def send_password_reset_task(self, user_email, otp_code, first_name=''):
         raise self.retry(exc=exc, countdown=30)
 
 
+@shared_task(bind=True, max_retries=2)
+def notify_tutor_new_enrollment_task(self, tutor_email, tutor_name, student_name, course_title, total_students):
+    """Notify tutor when a student enrolls in their course."""
+    name = tutor_name or 'Tutor'
+    subject = f'New enrollment in "{course_title}"'
+    text = f'Hi {name},\n\n{student_name} just enrolled in "{course_title}".\nTotal: {total_students} students.\n\nArm Academy'
+    html = _html_email(
+        'New Student Enrolled! 🎉',
+        f'''<p style="color:#475569">Hi {name},</p>
+        <p style="color:#475569">You have a new student in your course:</p>
+        <div style="background:#f1f5f9;border-radius:12px;padding:20px;margin:20px 0;text-align:center">
+          <div style="font-size:18px;font-weight:700;color:#1e1b4b">{course_title}</div>
+          <div style="font-size:28px;font-weight:800;color:#4f46e5;margin-top:8px">+1 student</div>
+          <div style="color:#64748b;margin-top:4px">{student_name} just enrolled · {total_students} total</div>
+        </div>''',
+        cta_text='View Dashboard',
+        cta_url=f'{settings.FRONTEND_URL}/dashboard',
+    )
+    try:
+        msg = EmailMultiAlternatives(subject, text, settings.DEFAULT_FROM_EMAIL, [tutor_email])
+        msg.attach_alternative(html, 'text/html')
+        msg.send()
+    except Exception as exc:
+        raise self.retry(exc=exc, countdown=60)
+
+
 @shared_task(bind=True, max_retries=3)
 def send_payment_confirmation_task(self, user_email, first_name, course_title, amount_amd):
     name = first_name or 'there'

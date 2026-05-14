@@ -263,11 +263,26 @@ export default function CourseDetail() {
               )}
             </div>
 
-            <div className="flex items-center gap-3 mt-4">
-              <Avatar className="h-8 w-8">
-                <AvatarFallback className="bg-indigo-600 text-white text-xs">{getInitials(course.tutor_name)}</AvatarFallback>
-              </Avatar>
-              <span className="text-sm text-slate-300">by <span className="text-white font-medium">{course.tutor_name}</span></span>
+            <div className="flex items-center gap-4 mt-4 flex-wrap">
+              <Link to={`/tutors/${course.tutor}`}
+                className="flex items-center gap-3 hover:opacity-80 transition-opacity group">
+                <Avatar className="h-9 w-9 ring-2 ring-white/20 group-hover:ring-white/50 transition-all">
+                  <AvatarFallback className="bg-indigo-600 text-white text-xs">{getInitials(course.tutor_name)}</AvatarFallback>
+                </Avatar>
+                <div>
+                  <span className="text-xs text-slate-400">Instructor</span>
+                  <div className="text-sm font-semibold text-white">{course.tutor_name}</div>
+                </div>
+              </Link>
+
+              {/* Message tutor — only for enrolled non-owners */}
+              {isAuthenticated && !isOwner && (
+                <Button size="sm" variant="outline"
+                  className="border-white/30 text-white hover:bg-white/10 bg-transparent"
+                  onClick={() => navigate(`/messages?with=${course.tutor}`)}>
+                  <MessageSquare className="h-4 w-4 mr-1.5" />Message Tutor
+                </Button>
+              )}
             </div>
 
             {/* Owner controls */}

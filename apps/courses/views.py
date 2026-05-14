@@ -153,10 +153,25 @@ class CourseViewSet(viewsets.ModelViewSet):
             total_classes=Class.objects.filter(course=course).count(),
         )
         Course.objects.filter(pk=course.pk).update(total_students=F('total_students') + 1)
+        course.refresh_from_db(fields=['total_students'])
 
+        # Email student confirmation
         try:
             from apps.courses.tasks import send_enrollment_confirmation
             send_enrollment_confirmation.delay(user.email, course.title)
+        except Exception:
+            pass
+
+        # Email tutor notification
+        try:
+            from apps.users.tasks import notify_tutor_new_enrollment_task
+            notify_tutor_new_enrollment_task.delay(
+                course.tutor.email,
+                course.tutor.display_name,
+                user.display_name,
+                course.title,
+                course.total_students,
+            )
         except Exception:
             pass
 
@@ -174,6 +189,31 @@ class CourseViewSet(viewsets.ModelViewSet):
             Course.objects.filter(pk=course.pk).update(total_students=F('total_students') - 1)
             return Response({'detail': 'Unenrolled.'})
         return Response({'detail': 'Not enrolled.'}, status=400)
+
+    # ── students (tutor-only view of who enrolled) ─────────────────────────
+    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
+    def students(self, request, pk=None):
+        from apps.ratings.models import Progress
+        from apps.users.serializers import UserSerializer
+        course = self.get_object()
+        if course.tutor != request.user and request.user.role != 'admin':
+            return Response({'detail': 'Only the course owner can view students.'}, status=403)
+        qs = Progress.objects.filter(course=course).select_related('student').order_by('-started_at')
+        data = [
+            {
+                'id':                  p.student.id,
+                'display_name':        p.student.display_name,
+                'email':               p.student.email,
+                'profile_picture':     p.student.profile_picture.url if p.student.profile_picture else None,
+                'completion_percentage': p.completion_percentage,
+                'attended_classes':    p.attended_classes,
+                'total_classes':       p.total_classes,
+                'is_completed':        p.is_completed,
+                'enrolled_at':         p.started_at,
+            }
+            for p in qs
+        ]
+        return Response({'count': len(data), 'students': data})
 
     # ── reviews ────────────────────────────────────────────────────────────
     @action(detail=True, methods=['get'])
