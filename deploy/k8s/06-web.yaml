@@ -1,0 +1,88 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web
+  namespace: arm-academy
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web
+  template:
+    metadata:
+      labels:
+        app: web
+    spec:
+      initContainers:
+        - name: migrate
+          image: arm-academy:latest
+          imagePullPolicy: Never
+          command: ["python", "manage.py", "migrate", "--noinput"]
+          envFrom:
+            - configMapRef:
+                name: arm-academy-config
+            - secretRef:
+                name: arm-academy-secrets
+        - name: collectstatic
+          image: arm-academy:latest
+          imagePullPolicy: Never
+          command: ["python", "manage.py", "collectstatic", "--noinput", "--clear"]
+          envFrom:
+            - configMapRef:
+                name: arm-academy-config
+            - secretRef:
+                name: arm-academy-secrets
+          volumeMounts:
+            - name: media
+              mountPath: /app/media
+      containers:
+        - name: web
+          image: arm-academy:latest
+          imagePullPolicy: Never
+          command:
+            - gunicorn
+            - "--bind=0.0.0.0:8000"
+            - "--workers=2"
+            - "--timeout=120"
+            - "--access-logfile=-"
+            - "config.wsgi:application"
+          ports:
+            - containerPort: 8000
+          envFrom:
+            - configMapRef:
+                name: arm-academy-config
+            - secretRef:
+                name: arm-academy-secrets
+          volumeMounts:
+            - name: media
+              mountPath: /app/media
+          resources:
+            requests:
+              memory: "200Mi"
+              cpu: "100m"
+            limits:
+              memory: "384Mi"
+              cpu: "500m"
+          readinessProbe:
+            httpGet:
+              path: /health/
+              port: 8000
+            initialDelaySeconds: 20
+            periodSeconds: 10
+      volumes:
+        - name: media
+          persistentVolumeClaim:
+            claimName: media-pvc
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-svc
+  namespace: arm-academy
+spec:
+  selector:
+    app: web
+  ports:
+    - port: 8000
+      targetPort: 8000

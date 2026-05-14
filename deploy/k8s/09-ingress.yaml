@@ -1,0 +1,54 @@
+# Traefik IngressRoute — routes armacademy.am to the frontend + API
+# Change host values to your actual domain
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: arm-academy-ingress
+  namespace: arm-academy
+  annotations:
+    kubernetes.io/ingress.class: "traefik"
+    traefik.ingress.kubernetes.io/router.entrypoints: "web,websecure"
+    # Let's Encrypt TLS via Traefik cert-manager (if configured on your k3s)
+    # cert-manager.io/cluster-issuer: "letsencrypt-prod"
+spec:
+  rules:
+    - host: armacademy.am
+      http:
+        paths:
+          # Django API
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: web-svc
+                port:
+                  number: 8000
+          # Django admin
+          - path: /admin
+            pathType: Prefix
+            backend:
+              service:
+                name: web-svc
+                port:
+                  number: 8000
+          # Django health check
+          - path: /health
+            pathType: Prefix
+            backend:
+              service:
+                name: web-svc
+                port:
+                  number: 8000
+          # React frontend (catch-all)
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend-svc
+                port:
+                  number: 80
+  # Uncomment after adding cert-manager:
+  # tls:
+  #   - hosts: [armacademy.am]
+  #     secretName: arm-academy-tls
