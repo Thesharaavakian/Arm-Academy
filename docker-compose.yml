@@ -5,16 +5,26 @@ version: '3.9'
 x-backend-image: &backend-image ghcr.io/thesharaavakian/arm-academy:${IMAGE_TAG:-latest}
 x-frontend-image: &frontend-image ghcr.io/thesharaavakian/arm-academy-frontend:${IMAGE_TAG:-latest}
 
+# Tight memory limits so two stacks fit on a t3.micro (1 GB RAM total).
+# hzortech stack uses ~400 MB; Arm Academy is capped at ~530 MB here.
+x-mem-limit: &db-mem { mem_limit: 128m, memswap_limit: 128m }
+x-web-mem:   &web-mem { mem_limit: 220m, memswap_limit: 220m }
+x-work-mem:  &work-mem { mem_limit: 180m, memswap_limit: 180m }
+x-small-mem: &small-mem { mem_limit: 32m,  memswap_limit: 32m  }
+
 services:
   db:
     image: postgres:15-alpine
+    <<: *db-mem
     volumes:
       - postgres_data:/var/lib/postgresql/data/
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-arm_academy}
       POSTGRES_USER: ${POSTGRES_USER:-arm_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-arm_password}
-    shm_size: '128m'
+      POSTGRES_SHARED_BUFFERS: 32MB
+      POSTGRES_MAX_CONNECTIONS: "20"
+    shm_size: '32m'
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-arm_user}"]
@@ -24,7 +34,8 @@ services:
 
   redis:
     image: redis:7-alpine
-    command: redis-server --maxmemory 64mb --maxmemory-policy allkeys-lru
+    <<: *small-mem
+    command: redis-server --maxmemory 24mb --maxmemory-policy allkeys-lru
     volumes:
       - redis_data:/data
     restart: unless-stopped
@@ -37,6 +48,7 @@ services:
   web:
     image: *backend-image
     build: .
+    <<: *web-mem
     env_file: .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-arm_user}:${POSTGRES_PASSWORD:-arm_password}@db:5432/${POSTGRES_DB:-arm_academy}
@@ -60,7 +72,8 @@ services:
   celery:
     image: *backend-image
     build: .
-    command: ["celery", "-A", "config", "worker", "--loglevel=info", "--concurrency=2"]
+    <<: *work-mem
+    command: ["celery", "-A", "config", "worker", "--loglevel=info", "--concurrency=1"]
     env_file: .env
     environment:
       DATABASE_URL: postgresql://${POSTGRES_USER:-arm_user}:${POSTGRES_PASSWORD:-arm_password}@db:5432/${POSTGRES_DB:-arm_academy}
@@ -81,6 +94,7 @@ services:
     build:
       context: .
       dockerfile: nginx/Dockerfile
+    <<: *small-mem
     ports:
       - "${EXTERNAL_PORT:-8080}:80"
     volumes:
