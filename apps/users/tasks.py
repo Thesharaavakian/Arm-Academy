@@ -1,6 +1,45 @@
+import hashlib
+import hmac
+import base64
+import requests as _requests
+from urllib.parse import urlencode
+
 from celery import shared_task
 from django.core.mail import EmailMultiAlternatives
 from django.conf import settings
+
+
+# ── Zadarma SMS helper ─────────────────────────────────────────────────────────
+
+def _zadarma_send(phone_number: str, message: str) -> dict:
+    """
+    Send an SMS via Zadarma API.
+    Auth: HMAC-SHA1 over (method + sorted_params + md5(sorted_params))
+    """
+    api_key    = getattr(settings, 'ZADARMA_API_KEY', '')
+    api_secret = getattr(settings, 'ZADARMA_API_SECRET', '')
+    if not api_key or not api_secret:
+        return {'status': 'skipped', 'reason': 'Zadarma not configured'}
+
+    method = '/v1/sms/send/'
+    params = {'number': phone_number, 'message': message}
+    params_str = urlencode(sorted(params.items()))
+    md5_hash   = hashlib.md5(params_str.encode()).hexdigest()
+    sign_input = f'{method}{params_str}{md5_hash}'.encode()
+    signature  = base64.b64encode(
+        hmac.new(api_secret.encode(), sign_input, hashlib.sha1).digest()
+    ).decode()
+
+    try:
+        resp = _requests.post(
+            f'https://api.zadarma.com{method}',
+            data=params,
+            headers={'Authorization': f'{api_key}:{signature}'},
+            timeout=10,
+        )
+        return resp.json()
+    except Exception as e:
+        return {'status': 'error', 'reason': str(e)}
 
 
 def _html_email(title, body_html, cta_text=None, cta_url=None):
@@ -50,19 +89,14 @@ def send_email_otp_task(self, user_email, otp_code, first_name=''):
 
 @shared_task(bind=True, max_retries=2)
 def send_phone_otp_task(self, phone_number, otp_code):
+    """Send OTP via Zadarma SMS API."""
     try:
-        from django.conf import settings as s
-        sid = getattr(s, 'TWILIO_ACCOUNT_SID', '')
-        token = getattr(s, 'TWILIO_AUTH_TOKEN', '')
-        from_num = getattr(s, 'TWILIO_PHONE_NUMBER', '')
-        if not (sid and token and from_num):
-            return  # Twilio not configured — skip silently
-        from twilio.rest import Client
-        Client(sid, token).messages.create(
-            body=f'Arm Academy: Your verification code is {otp_code}. Valid 10 minutes.',
-            from_=from_num,
-            to=phone_number,
+        result = _zadarma_send(
+            phone_number,
+            f'Arm Academy: Your code is {otp_code}. Valid 10 min. Do not share.',
         )
+        if result.get('status') == 'error':
+            raise Exception(result.get('reason', 'Zadarma error'))
     except Exception as exc:
         raise self.retry(exc=exc, countdown=60)
 

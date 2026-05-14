@@ -90,7 +90,11 @@ class InitiatePaymentView(APIView):
         return Response({'checkout_url': session.url, 'session_id': session.id})
 
     def _manual_payment(self, request, course, price):
-        """No Stripe configured — create a pending payment for admin confirmation."""
+        """
+        No Stripe configured — create a pending payment.
+        If the tutor has a PayPal.me link, surface it so the student can pay now.
+        Otherwise fall back to "contact tutor" message.
+        """
         existing = Payment.objects.filter(
             student=request.user, course=course, status='pending'
         ).first()
@@ -101,16 +105,30 @@ class InitiatePaymentView(APIView):
                 amount_amd=price,
                 status='pending',
             )
+
+        paypal_link = getattr(course.tutor, 'paypal_me_link', None)
+        # Append amount to PayPal.me link if set
+        # e.g. https://paypal.me/aramatutors/5000 pays 5000 in tutor's currency
+        if paypal_link:
+            paypal_link = paypal_link.rstrip('/') + f'/{int(price)}'
+            detail = (
+                f'Click "Pay with PayPal" to complete your payment of {price:,.0f} AMD. '
+                'Your enrollment will be confirmed automatically within a few minutes.'
+            )
+        else:
+            detail = (
+                f'Contact the tutor to arrange payment of {price:,.0f} AMD. '
+                'Your enrollment will be confirmed within 24 hours after payment is received.'
+            )
+
         return Response({
             'manual': True,
             'payment_id': existing.pk,
             'amount_amd': str(price),
             'tutor_name': course.tutor.display_name,
             'tutor_email': course.tutor.email,
-            'detail': (
-                f'Please transfer {price:,.0f} AMD to the tutor and send your '
-                'proof of payment. Your enrollment will be confirmed within 24 hours.'
-            ),
+            'paypal_link': paypal_link,
+            'detail': detail,
         })
 
 

@@ -162,9 +162,22 @@ export default function CourseDetail() {
     try {
       const { data } = await api.post(`/payments/initiate/${id}/`)
       if (data.checkout_url) {
+        // Stripe Checkout
         window.location.href = data.checkout_url
       } else if (data.manual) {
-        toast({ title: `Payment: ${Number(data.amount_amd).toLocaleString()} ֏`, description: data.detail })
+        if (data.paypal_link) {
+          // Open PayPal.me in new tab and show confirmation message
+          window.open(data.paypal_link, '_blank', 'noopener')
+          toast({
+            title: `Pay ${Number(data.amount_amd).toLocaleString()} ֏ via PayPal`,
+            description: 'Complete the PayPal payment. Enrollment confirms automatically once received.',
+          })
+        } else {
+          toast({
+            title: `Contact tutor to pay ${Number(data.amount_amd).toLocaleString()} ֏`,
+            description: data.detail,
+          })
+        }
       }
     } catch (err) {
       toast({ title: 'Payment failed', description: err.response?.data?.detail, variant: 'destructive' })

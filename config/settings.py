@@ -191,11 +191,16 @@ EMAIL_HOST_USER = config('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = config('EMAIL_HOST_PASSWORD', default='')
 DEFAULT_FROM_EMAIL = config('DEFAULT_FROM_EMAIL', default='noreply@armacademy.am')
 
-# Stripe — payments in AMD (Armenian Dram)
+# Stripe — TEST mode (free, no business needed for testing)
 STRIPE_SECRET_KEY      = config('STRIPE_SECRET_KEY', default='')
 STRIPE_PUBLISHABLE_KEY = config('STRIPE_PUBLISHABLE_KEY', default='')
 STRIPE_WEBHOOK_SECRET  = config('STRIPE_WEBHOOK_SECRET', default='')
-CURRENCY               = 'amd'           # Armenian Dram — ISO 4217
+CURRENCY               = 'amd'
 
-# Frontend URL (used in payment redirect links and emails)
+# Zadarma SMS (replaces Twilio — zadarma.com free international SMS API)
+ZADARMA_API_KEY    = config('ZADARMA_API_KEY',    default='')
+ZADARMA_API_SECRET = config('ZADARMA_API_SECRET', default='')
+ZADARMA_SENDER     = config('ZADARMA_SENDER',     default='ArmAcademy')
+
+# Frontend URL (used in email links and Stripe redirects)
 FRONTEND_URL = config('FRONTEND_URL', default='http://localhost:5173')

@@ -12,6 +12,7 @@ class UserSerializer(serializers.ModelSerializer):
             'role', 'bio', 'profile_picture', 'is_verified',
             'expertise_areas', 'hourly_rate', 'average_rating',
             'total_reviews', 'total_students', 'phone_number',
+            'paypal_me_link',
             'email_verified', 'phone_verified', 'two_fa_enabled',
             'created_at', 'updated_at',
         ]
@@ -33,6 +34,7 @@ class UserDetailSerializer(serializers.ModelSerializer):
             'expertise_areas', 'hourly_rate', 'average_rating',
             'total_reviews', 'total_students', 'phone_number',
             'email_verified', 'phone_verified', 'two_fa_enabled',
+            'paypal_me_link',
             'created_at', 'updated_at',
         ]
         read_only_fields = [

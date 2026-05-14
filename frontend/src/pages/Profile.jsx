@@ -300,7 +300,8 @@ export default function Profile() {
     last_name: display?.last_name || '',
     bio: display?.bio || '',
     expertise_areas: display?.expertise_areas || '',
-    hourly_rate: display?.hourly_rate || '',
+    hourly_rate:     display?.hourly_rate     || '',
+    paypal_me_link:  display?.paypal_me_link  || '',
   })
 
   const updateMutation = useMutation({
@@ -443,6 +444,14 @@ export default function Profile() {
                     <Input name="expertise_areas" value={form.expertise_areas} onChange={handleChange} disabled={!editing} placeholder="Mathematics, Physics, Computer Science" className="mt-1.5" /></div>
                   <div><Label>Hourly rate (AMD)</Label>
                     <Input name="hourly_rate" type="number" value={form.hourly_rate} onChange={handleChange} disabled={!editing} placeholder="5000" className="mt-1.5" /></div>
+                  <div>
+                    <Label>PayPal.me link <span className="text-xs text-muted-foreground font-normal">(used for paid course payments — no business registration needed)</span></Label>
+                    <Input name="paypal_me_link" type="url" value={form.paypal_me_link} onChange={handleChange} disabled={!editing}
+                      placeholder="https://paypal.me/yourname" className="mt-1.5" />
+                    <p className="text-xs text-muted-foreground mt-1">
+                      Students are sent directly to your PayPal to complete payment. Set up a free account at <a href="https://paypal.me" target="_blank" rel="noreferrer" className="text-primary underline">paypal.me</a>
+                    </p>
+                  </div>
                 </>}
               </CardContent>
             </Card>
