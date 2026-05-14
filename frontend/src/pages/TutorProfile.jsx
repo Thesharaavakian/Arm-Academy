@@ -140,18 +140,17 @@ export default function TutorProfile() {
             </div>
 
             {/* Action buttons */}
-            {!isSelf && (
-              <div className="flex gap-3 shrink-0">
+            <div className="shrink-0">
+              {isSelf ? (
+                <Button variant="white" asChild>
+                  <Link to="/profile">Edit Profile</Link>
+                </Button>
+              ) : (
                 <Button variant="white" onClick={handleMessage}>
                   <MessageSquare className="h-4 w-4 mr-2" />Message
                 </Button>
-              </div>
-            )}
-            {isSelf && (
-              <Button variant="white" asChild>
-                <Link to="/profile">Edit Profile</Link>
-              </Button>
-            )}
+              )}
+            </div>
           </div>
         </div>
       </div>

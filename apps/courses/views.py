@@ -8,6 +8,14 @@ from .serializers import CourseSerializer, ClassSerializer, ClassDetailSerialize
 from apps.users.permissions import IsTutor, IsCourseOwnerOrReadOnly
 
 
+def _fire(task, *args):
+    """Dispatch a Celery task, silently drop if broker is unavailable."""
+    try:
+        task.delay(*args)
+    except Exception:
+        pass
+
+
 class CourseViewSet(viewsets.ModelViewSet):
     serializer_class = CourseSerializer
     filterset_fields = ['tutor', 'level', 'is_published', 'is_free', 'category']
@@ -121,8 +129,8 @@ class CourseViewSet(viewsets.ModelViewSet):
         if course.content_rating == 'adult':
             dob = getattr(user, 'date_of_birth', None)
             if dob:
-                from datetime import date
-                age = (date.today() - dob).days // 365
+                from dateutil.relativedelta import relativedelta
+                age = relativedelta(date.today(), dob).years
                 if age < 18:
                     return Response({
                         'detail': 'This course is restricted to users 18 and older.',
@@ -153,27 +161,14 @@ class CourseViewSet(viewsets.ModelViewSet):
             total_classes=Class.objects.filter(course=course).count(),
         )
         Course.objects.filter(pk=course.pk).update(total_students=F('total_students') + 1)
-        course.refresh_from_db(fields=['total_students'])
+        new_total = course.total_students + 1  # no extra SELECT needed
 
-        # Email student confirmation
-        try:
-            from apps.courses.tasks import send_enrollment_confirmation
-            send_enrollment_confirmation.delay(user.email, course.title)
-        except Exception:
-            pass
-
-        # Email tutor notification
-        try:
-            from apps.users.tasks import notify_tutor_new_enrollment_task
-            notify_tutor_new_enrollment_task.delay(
-                course.tutor.email,
-                course.tutor.display_name,
-                user.display_name,
-                course.title,
-                course.total_students,
-            )
-        except Exception:
-            pass
+        from apps.courses.tasks import send_enrollment_confirmation
+        from apps.users.tasks import notify_tutor_new_enrollment_task
+        _fire(send_enrollment_confirmation, user.email, course.title)
+        _fire(notify_tutor_new_enrollment_task,
+              course.tutor.email, course.tutor.display_name,
+              user.display_name, course.title, new_total)
 
         return Response({
             'detail': 'Enrolled successfully.',

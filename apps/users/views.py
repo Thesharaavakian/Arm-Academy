@@ -315,11 +315,12 @@ class SendPhoneOTPView(generics.GenericAPIView):
         request.user.save(update_fields=['phone_number'])
 
         otp = OTPVerification.create_for_user(request.user, OTPVerification.PHONE, expires_minutes=10)
+        from .tasks import send_phone_otp_task, _zadarma_send
         try:
-            from .tasks import send_phone_otp_task
             send_phone_otp_task.delay(phone, otp.code)
         except Exception:
-            pass  # Twilio may not be configured; OTP is still in DB
+            # Celery unavailable — send synchronously via Zadarma
+            _zadarma_send(phone, f'Arm Academy: Your code is {otp.code}. Valid 10 min. Do not share.')
         return Response({'detail': 'Verification code sent to your phone.'})
 
 

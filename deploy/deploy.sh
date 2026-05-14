@@ -113,10 +113,11 @@ if $USE_K3S; then
     docker build -t arm-academy:latest .
     # Build frontend image
     docker build -t arm-academy-frontend:latest -f nginx/Dockerfile .
-    # Import into k3s containerd
+    # Import into k3s containerd (both images in parallel — each is 400-600 MB)
     if command -v k3s &>/dev/null; then
-        docker save arm-academy:latest | k3s ctr images import -
-        docker save arm-academy-frontend:latest | k3s ctr images import -
+        docker save arm-academy:latest          | k3s ctr images import - &
+        docker save arm-academy-frontend:latest | k3s ctr images import - &
+        wait
         log "Images imported into k3s containerd"
     fi
     # Generate secrets with real values

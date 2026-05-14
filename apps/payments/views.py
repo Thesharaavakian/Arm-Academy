@@ -126,7 +126,8 @@ class InitiatePaymentView(APIView):
             'payment_id': existing.pk,
             'amount_amd': str(price),
             'tutor_name': course.tutor.display_name,
-            'tutor_email': course.tutor.email,
+            # tutor_email omitted — use in-platform messaging to contact tutor
+            'tutor_profile_url': f'/tutors/{course.tutor.pk}',
             'paypal_link': paypal_link,
             'detail': detail,
         })
