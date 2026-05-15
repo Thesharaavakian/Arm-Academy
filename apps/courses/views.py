@@ -26,6 +26,9 @@ class CourseViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        # Admins see every course in any state
+        if user.is_authenticated and user.role == 'admin':
+            return Course.objects.all()
         # Tutors can see and manage their own courses (published or not)
         tutor_actions = ('update', 'partial_update', 'destroy', 'my_courses',
                          'publish', 'unpublish', 'students')
