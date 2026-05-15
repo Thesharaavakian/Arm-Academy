@@ -451,8 +451,14 @@ class UserViewSet(viewsets.ModelViewSet):
         instance.delete()
 
     def get_serializer_class(self):
-        if self.action in ['retrieve', 'profile', 'update', 'partial_update']:
+        # Full detail (includes email/phone) only for own profile or admin
+        if self.action in ['profile', 'update', 'partial_update']:
             return UserDetailSerializer
+        if self.action == 'retrieve':
+            req = self.request
+            pk  = self.kwargs.get('pk')
+            if req.user.is_authenticated and (str(req.user.pk) == str(pk) or req.user.role == 'admin'):
+                return UserDetailSerializer
         return UserSerializer
 
     # ── profile ──
